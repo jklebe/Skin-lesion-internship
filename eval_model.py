@@ -50,17 +50,22 @@ if __name__ == '__main__':
     parser.add_argument('model_name', help = 'The model to be tested')
     parser.add_argument('test_train_split', help = 'The .pkl file that contains'
             'the train and test split')
+    parser.add_argument('--set', help = 'Which set to test. Must be in "val", "train" and "test"')
     
     args = parser.parse_args()
     try:
         with open(args.test_train_split, 'rb') as f:
             lists = pickle.load(f)
-        training_names = lists['training_names']
-        validation_names = lists['validation_names']
-        test_names = lists['test_names']
     except:
         print("Could not open the pikel containing the training_test_split")
         exit()
+    
+    if args.set = 'val':
+        test_names = lists['validation_names']
+    elif args.set = 'train':
+        test_names = lists['training_names']
+    else:
+        test_names = lists['test_names']
 
     try:
         resnet34 = models.resnet34(pretrained = False)
