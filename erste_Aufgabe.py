@@ -6,7 +6,6 @@ import torchvision.models as models
 import PIL
 from torchvision import transforms
 import torch.nn
-from torch.utils.data import Dataset
 import torch.optim as optim
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -14,6 +13,8 @@ from tqdm import tqdm
 
 import argparse
 import pickle
+
+from customDataset import CustomImageDataset
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(device)
@@ -179,51 +180,6 @@ def train_test_split(
 #                 training_names_mel[0],
 #                 training_names_nv[0],
 #                 training_names_vasc[0]]
-
-
-class CustomImageDataset(Dataset):
-    
-
-    def __init__(self, metaDataFile, img_dir, transform = None, list_im = None):
-        ''' img_dir = path to images, metaDataFile: path to labels'''
-        self.img_dir = img_dir
-        self.labels_dir = metaDataFile
-        self.transform = transform
-        self.img_list = list_im
-        if list_im == None:
-            self.__fillList__()
-            
-    def __len__(self):
-        return(len(self.img_list))
-        
-    def __fillList__(self):
-        with open(self.labels_dir, 'r' ) as csvfile:		
-            reader = csv.reader(csvfile, delimiter=',', quotechar='|')		
-            next(reader)
-            for row in reader:
-                self.img_list.append(row[1])        
-        
-    def __getLabel__(self, imageName): 
-        '''enter the name of the image and get the corresponding label'''
-        #folderName= '../HAM10000_metadata.csv'
-        dic = {'akiec':0, 'bcc':1, 'bkl':2, 'df':3, 'mel':4, 'nv':5, 'vasc':6}
-        with open(self.labels_dir, 'r' ) as csvfile:		
-            reader = csv.reader(csvfile, delimiter=',', quotechar='|')		
-            next(reader)
-            for row in reader:
-                if imageName == row[1]:
-                    #print('test: dic[row[2]]: ', dic[row[2]])
-                    return dic[row[2]]
-                    
-    def __getitem__(self, idx):
-        im = PIL.Image.open('../data/images/{}.jpg'.format(self.img_list[idx]))
-        #image = read_image(self.img_dir) # Bild soll mit idx aufgerufen werden (in csv Liste)  -> self parameter ist die Liste. statt Panda nutze PIL
-        label = self.__getLabel__(self.img_list[idx])
-        if self.transform:
-            image = self.transform(im)
-            
-        sample = {"image": image, "label":label}
-        return sample
         
 
 def train_network(training_names, validation_names, test_names):
@@ -285,7 +241,7 @@ def train_network(training_names, validation_names, test_names):
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(resnet34.parameters(), lr=0.00003) # stochastic gradient descent
 
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, 1163)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, 2074)
 
 
     #criterion = nn.CrossEntropyLoss()
@@ -317,17 +273,22 @@ def train_network(training_names, validation_names, test_names):
         print(mat)
         print(np.trace(mat) / np.sum(mat))
         bacc = 0
+        mean_recall = 0
         for i in range(7):
             bacc = bacc + mat[i,i] / (7 * np.sum(mat[:,i]))
+            mean_recall = mean_recall + mat[i,i] / (7 * np.sum(mat[i]) + 0.1)
         print(bacc)
+        print(mean_recall)
         if bacc > best_bacc:    
-            torch.save(resnet34.state_dict(), 'model_best')
+            torch.save(resnet34.state_dict(), 'model_best_2074')
             best_bacc = bacc
             early_stopping = 0
         else:
             early_stopping = early_stopping + 1
             if early_stopping >= 10:
                 print("stopped due to not improving during the last ten epochs")
+                break
+        print("Best accuracy at the moment: {}, ({} epochs until early stopping)".format(best_bacc, 10 - early_stopping))
 
         resnet34.train()
         epoch_loss = 0
@@ -362,9 +323,12 @@ def train_network(training_names, validation_names, test_names):
     print(mat)
     print(np.trace(mat) / np.sum(mat))
     bacc = 0
+    mean_recall = 0
     for i in range(7):
         bacc = bacc + mat[i,i] / (7 * np.sum(mat[:,i]))
+        mean_recall = mean_recall + mat[i,i] / (7 * np.sum(mat[i]) + 0.1)
     print(bacc)
+    print(mean_recall)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'Programm to train a neural'
