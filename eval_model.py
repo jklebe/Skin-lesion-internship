@@ -60,9 +60,9 @@ if __name__ == '__main__':
         print("Could not open the pikel containing the training_test_split")
         exit()
     
-    if args.set = 'val':
+    if args.set == 'val':
         test_names = lists['validation_names']
-    elif args.set = 'train':
+    elif args.set == 'train':
         test_names = lists['training_names']
     else:
         test_names = lists['test_names']
