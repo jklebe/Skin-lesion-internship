@@ -112,7 +112,7 @@ def train_test_split(
     random.shuffle(names_vasc)
 
     # create training set
-    training_names_akiec = names_akiec[:int(len(names_akiec)*(1-test_set_percentage))]
+    training_names_akiec = names_akiec[:int(len(names_akiec)*(train_set_percentage))]
     training_names_bcc = names_bcc[:int(len(names_bcc)*(train_set_percentage))]
     training_names_bkl = names_bkl[:int(len(names_bkl)*(train_set_percentage))]
     training_names_df = names_df[:int(len(names_df)*(train_set_percentage))]
@@ -280,7 +280,7 @@ def train_network(training_names, validation_names, test_names):
         print(bacc)
         print(mean_recall)
         if bacc > best_bacc:    
-            torch.save(resnet34.state_dict(), 'model_best_2074')
+            torch.save(resnet34.state_dict(), 'model_best.pt')
             best_bacc = bacc
             early_stopping = 0
         else:
