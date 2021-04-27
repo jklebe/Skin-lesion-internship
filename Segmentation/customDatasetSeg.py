@@ -8,6 +8,9 @@ import PIL
 from torchvision import transforms
 import torch
 
+PATH = '../../data/'
+SEGPATH = '../../data/segmentation/'
+
 class CustomImageDataset(Dataset):
     
 
@@ -60,8 +63,8 @@ class CustomImageDataset(Dataset):
     
     # Aenderung    
     def __getitem__(self, idx):
-        im = PIL.Image.open('../data/images/{}.jpg'.format(self.img_list[idx]))
-        imSeg = PIL.Image.open('../data/HAM10000_segmentations_lesion_tschandl/{}_segmentation.png'.format(self.img_list[idx]))
+        im = PIL.Image.open(PATH + 'images/{}.jpg'.format(self.img_list[idx]))
+        imSeg = PIL.Image.open(SEGPATH + '{}_segmentation.png'.format(self.img_list[idx]))
         label = self.__getLabel__(self.img_list[idx])
         dic = {'akiec':0, 'bcc':1, 'bkl':2, 'df':3, 'mel':4, 'nv':5, 'vasc':6}
         
@@ -84,8 +87,8 @@ class CustomImageDataset(Dataset):
         # change mask values
         # black 0 -> 7
         # white 1 -> dic[label]
+        mask[mask!=0] = label
         mask[mask==0] = 7
-        mask[mask==1] = label
         
             
         sample = {"image": image, "mask":mask}
@@ -101,15 +104,14 @@ class CustomImageDataset(Dataset):
 transform_data_seg_1 = transforms.Compose([
     transforms.ColorJitter(0.4,0.4,0.4),
     transforms.ToTensor(),
-    transforms.Normalize(mean=[194.6979, 139.2626, 145.4852], std=[22.8551, 30.9032, 33.9032])
+    #transforms.Normalize(mean=[194.6979, 139.2626, 145.4852], std=[22.8551, 30.9032, 33.9032])
+    transforms.Normalize(mean=[0.7635, 0.5461, 0.5705], std=[0.0896, 0.1212, 0.1330])
     ])
     
 # Aenderung 3
 ''' ToTensor needs a PIL or np-arr. '''
 ''' transforms segmentation image to tensor,'''
-transform_toTensor = transforms.Compose([
-    transforms.ToTensor()
-    ])
+transform_toTensor = transforms.ToTensor()
     
 # Aenderung 4
 transform_data_seg_2 = transforms.Compose([

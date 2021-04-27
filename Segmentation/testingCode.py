@@ -1,5 +1,3 @@
-import os
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 import matplotlib.pyplot as plt
 #import csv
 import numpy as np
@@ -20,24 +18,44 @@ import torch
 import customDatasetSeg
 from customDatasetSeg import CustomImageDataset
 
+PATH = '../../data/'
 
-myDataset = CustomImageDataset('../data/HAM10000_metadata.csv', '../data/images', transform_data_seg_1 = customDatasetSeg.transform_data_seg_1, transform_toTensor = customDatasetSeg.transform_toTensor, transform_data_seg_2 = customDatasetSeg.transform_data_seg_2, list_im = None)
-ex = myDataset.__getitem__(12)
+im = PIL.Image.open(PATH + "images/ISIC_0024306.jpg")
+imSeg = PIL.Image.open(PATH + "segmentation/ISIC_0024306_segmentation.png")
+
+#im.show()
+#imSeg.show()
+
+im = customDatasetSeg.transform_data_seg_1(im)
+imSeg = transforms.ToTensor()(imSeg)
+
+
+
+#trans = transforms.ToPILImage()
+#trans(im).show()
+#trans(imSeg).show()
+
+#exit()
+
+myDataset = CustomImageDataset(PATH + 'HAM10000_metadata.csv', PATH + 'images', transform_data_seg_1 = customDatasetSeg.transform_data_seg_1, transform_toTensor = customDatasetSeg.transform_toTensor, transform_data_seg_2 = customDatasetSeg.transform_data_seg_2, list_im = None)
+ex = myDataset.__getitem__(1245)
 ex_np = ex['image'].detach().numpy()
 ex_np = np.moveaxis(ex_np, 0, -1)
 for i in range(3):
     ex_np[:,:,i] = (ex_np[:,:,i] - np.min(ex_np[:,:,i]))/np.max(ex_np[:,:,i] - np.min(ex_np[:,:,i]))
-print(np.max(ex_np), np.min(ex_np))
-print(ex_np)
+ex_np_ = ex['mask'].detach().numpy()
+ex_np_ = ex_np_.astype(int) 
 
+print(np.min(ex_np_), np.max(ex_np_))
 
-ex_np_ = ex['mask'].detach().numpy().transpose()
-ex_np_ = (ex_np_ - np.min(ex_np_))/np.max(ex_np_)
+ex_np_ = np.moveaxis(ex_np_, 0, -1)
 plt.figure()
-plt.subplot(1,2,1)
+plt.subplot(1,3,1)
 plt.imshow(ex_np)
-plt.subplot(1,2,2)
+plt.subplot(1,3,2)
 plt.imshow(ex_np_)
+plt.subplot(1,3,3)
+plt.imshow((ex_np + ex_np_ / 255) / 2)
 plt.show()
 plt.close()
 
@@ -70,7 +88,7 @@ transform_data_seg_2 = transforms.Compose([
     transforms.RandomPerspective(distortion_scale=0.2),
     ])   # mean and stddev have been previously calculated
 
-im = PIL.Image.open("../data/images/ISIC_0024306.jpg")
+im = PIL.Image.open(PATH + "images/ISIC_0024306.jpg")
 imTensor = transform_data(im)
 print(imTensor)
 imTensor2 = transform_data_seg_2(imTensor)
@@ -80,7 +98,7 @@ print(imTensor2.shape)
 print(np.std(imTensor2.numpy(), axis=(1,2)))
 print(imTensor2.numpy().shape)
 
-imSeg = PIL.Image.open("../data/HAM10000_segmentations_lesion_tschandl/ISIC_0024306_segmentation.png")
+imSeg = PIL.Image.open(PATH + "HAM10000_segmentations_lesion_tschandl/ISIC_0024306_segmentation.png")
 imSegTensor = transform_toTensor(imSeg)
 
 print('Image')
