@@ -87,8 +87,8 @@ class CustomImageDataset(Dataset):
         # change mask values
         # black 0 -> 7
         # white 1 -> dic[label]
-        mask[mask!=0] = label
         mask[mask==0] = 7
+        mask[mask!=7] = label 
         
             
         sample = {"image": image, "mask":mask}
