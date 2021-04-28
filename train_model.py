@@ -195,14 +195,14 @@ def train_network(training_names, validation_names, test_names):
         transforms.RandomPerspective(distortion_scale=0.2),
         transforms.ColorJitter(0.4,0.4,0.4),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[194.6979, 139.2626, 145.4852], std=[22.8551, 30.9032, 33.9032])
+        transforms.Normalize(mean=[0.7635, 0.5461, 0.5705], std=[0.0896, 0.1212, 0.1330])
         ])   # mean and stddev have been previously calculated
         
     transform_val = transforms.Compose([
         transforms.Resize((256,256)),
         transforms.CenterCrop(224),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[194.6979, 139.2626, 145.4852], std=[22.8551, 30.9032, 33.9032])
+        transforms.Normalize(mean=[0.7635, 0.5461, 0.5705], std=[0.0896, 0.1212, 0.1330])
         ]) 
 
         
