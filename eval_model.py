@@ -20,7 +20,7 @@ def eval_model(resnet34, test_names):
         transforms.Resize((256,256)),
         transforms.CenterCrop(224),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[194.6979, 139.2626, 145.4852], std=[22.8551, 30.9032, 33.9032])
+        transforms.Normalize(mean=[0.7635, 0.5461, 0.5705], std=[0.0896, 0.1212, 0.1330])
         ]) 
     
     testData = CustomImageDataset('../data/HAM10000_metadata.csv', '../data/images', transform = transform_val, list_im = test_names)
