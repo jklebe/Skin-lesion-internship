@@ -19,6 +19,7 @@ class CustomImageDataset(Dataset):
         return(len(self.img_list))
         
     def __fillList__(self):
+        self.img_list = []
         with open(self.labels_dir, 'r' ) as csvfile:		
             reader = csv.reader(csvfile, delimiter=',', quotechar='|')		
             next(reader)
