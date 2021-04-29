@@ -249,8 +249,9 @@ def train_network(training_names, validation_names, test_names):
     #train_dl = DataLoader(overfitDataset, batch_size = 10, shuffle = True)
 
     def getModelAccuracy(model, train_dl):
+        ''' determines how many pixels of the output and the mask are same '''
+        ''' returns average value  '''
         model.eval()
-        ''' testing '''
         count_batch = 0
         acc_seg = 0
         for batch_ex in tqdm(iter(train_dl)):
