@@ -9,7 +9,7 @@ from torchvision import transforms
 import torch
 
 PATH = '../../data/'
-SEGPATH = '../../data/segmentation/'
+SEGPATH = '../../data/HAM10000_segmentations_lesion_tschandl/'
 
 class CustomImageDataset(Dataset):
     
@@ -89,6 +89,7 @@ class CustomImageDataset(Dataset):
         # white 1 -> dic[label]
         mask[mask==0] = 7
         mask[mask!=7] = label 
+        mask = mask.type(torch.long)
         
             
         sample = {"image": image, "mask":mask}
@@ -121,4 +122,12 @@ transform_data_seg_2 = transforms.Compose([
     transforms.RandomVerticalFlip(),
     transforms.RandomAffine(degrees=40, scale=(.9, 1.1), shear=0),
     transforms.RandomPerspective(distortion_scale=0.2),
+    ])
+   
+
+''' transforms input image '''   
+transform_data_seg_test = transforms.Compose([
+    transforms.ToTensor(),
+    #transforms.Normalize(mean=[194.6979, 139.2626, 145.4852], std=[22.8551, 30.9032, 33.9032])
+    transforms.Normalize(mean=[0.7635, 0.5461, 0.5705], std=[0.0896, 0.1212, 0.1330])
     ])
