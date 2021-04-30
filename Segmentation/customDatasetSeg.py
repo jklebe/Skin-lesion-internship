@@ -9,7 +9,7 @@ from torchvision import transforms
 import torch
 
 PATH = '../../data/'
-SEGPATH = '../../data/HAM10000_segmentations_lesion_tschandl/'
+SEGPATH = '../../data/segmentation/'
 
 class CustomImageDataset(Dataset):
     

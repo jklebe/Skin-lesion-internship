@@ -257,7 +257,7 @@ def train_network(training_names, validation_names, test_names):
         for batch_ex in tqdm(iter(train_dl)):
             #print(batch_ex['image'].shape)
             #print(batch_ex['mask'].shape)
-            prediction = model(batch_ex['image'])
+            prediction = model(batch_ex['image'].to(device))
             #print(prediction.shape)
             prediction = torch.argmax(prediction, dim = 1, keepdims = True)
             prediction = prediction.detach().numpy()
@@ -301,7 +301,7 @@ def train_network(training_names, validation_names, test_names):
         transform_data_seg_2 = None,
         list_im = test_names
         )
-    test_dl = DataLoader(testData, batch_size = 100, shuffle = False)
+    test_dl = DataLoader(testData, batch_size = 32, shuffle = False)
     #valData = CustomImageDatasetSeg(PATH + 'HAM10000_metadata.csv', PATH + 'images', transform = transform_val, list_im = validation_names)
     valData = CustomImageDataset(
         PATH + 'HAM10000_metadata.csv',
@@ -311,13 +311,14 @@ def train_network(training_names, validation_names, test_names):
         transform_data_seg_2 = None,
         list_im = validation_names
         )
-    val_dl = DataLoader(valData, batch_size = 100, shuffle = False) 
+    val_dl = DataLoader(valData, batch_size = 32, shuffle = False) 
     #test_dl = DataLoader(overfitDataset, batch_size = 10, shuffle = False)
     print('len(testData: ', len(testData))
 
     epochs = 17
     #best_bacc = 0
     #early_stopping = 0
+    print(getModelAccuracy(model, val_dl))
     for epoch in range(epochs):
         '''
         print("Validate the network before epoch {}".format(epoch))
