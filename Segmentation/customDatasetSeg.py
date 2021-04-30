@@ -8,15 +8,16 @@ import PIL
 from torchvision import transforms
 import torch
 
-PATH = '../../data/'
-SEGPATH = '../../data/HAM10000_segmentations_lesion_tschandl/'
+#PATH = '../../data/'
+#SEGPATH = '../../data/HAM10000_segmentations_lesion_tschandl/'
 
 class CustomImageDataset(Dataset):
     
 
-    def __init__(self, metaDataFile, img_dir, transform_data_seg_1 = None, transform_toTensor = None, transform_data_seg_2 = None, list_im = None):
-        ''' img_dir = path to images, metaDataFile: path to labels'''
-        self.img_dir = img_dir
+    def __init__(self, metaDataFile, path_to_images, path_to_masks, transform_data_seg_1 = None, transform_toTensor = None, transform_data_seg_2 = None, list_im = None):
+        ''' path_to_images = path to images, metaDataFile: path to labels'''
+        self.path_to_images = path_to_images
+        self.path_to_masks = path_to_masks
         self.labels_dir = metaDataFile
         #self.transform = transform
         self.transform_data_seg_1 = transform_data_seg_1
@@ -63,8 +64,8 @@ class CustomImageDataset(Dataset):
     
     # Aenderung    
     def __getitem__(self, idx):
-        im = PIL.Image.open(PATH + 'images/{}.jpg'.format(self.img_list[idx]))
-        imSeg = PIL.Image.open(SEGPATH + '{}_segmentation.png'.format(self.img_list[idx]))
+        im = PIL.Image.open(self.path_to_images + '/{}.jpg'.format(self.img_list[idx]))
+        imSeg = PIL.Image.open(self.path_to_masks + '/{}_segmentation.png'.format(self.img_list[idx]))
         label = self.__getLabel__(self.img_list[idx])
         dic = {'akiec':0, 'bcc':1, 'bkl':2, 'df':3, 'mel':4, 'nv':5, 'vasc':6}
         
@@ -124,6 +125,11 @@ transform_data_seg_2 = transforms.Compose([
     transforms.RandomPerspective(distortion_scale=0.2),
     ])
    
+# Aenderung 5
+transform_data_val = transforms.Compose([
+    transforms.Resize((256, 256)),
+    transforms.CenterCrop(224)
+    ])
 
 ''' transforms input image '''   
 transform_data_seg_test = transforms.Compose([
