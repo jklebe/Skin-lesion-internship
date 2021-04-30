@@ -323,12 +323,8 @@ def train_network(training_names, validation_names, test_names, path_to_csv, pat
     epochs = 17
     #best_bacc = 0
     #early_stopping = 0
-<<<<<<< HEAD
-    print(getModelAccuracy(model, val_dl))
-=======
     
     #print(getModelAccuracy(model, test_dl))
->>>>>>> 155f59de3a805775fd05a442db33663567b29f5e
     for epoch in range(epochs):
         '''
         print("Validate the network before epoch {}".format(epoch))
