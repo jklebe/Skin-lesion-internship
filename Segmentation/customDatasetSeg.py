@@ -8,13 +8,8 @@ import PIL
 from torchvision import transforms
 import torch
 
-<<<<<<< HEAD
-PATH = '../../data/'
-SEGPATH = '../../data/segmentation/'
-=======
 #PATH = '../../data/'
 #SEGPATH = '../../data/HAM10000_segmentations_lesion_tschandl/'
->>>>>>> 155f59de3a805775fd05a442db33663567b29f5e
 
 class CustomImageDataset(Dataset):
     
