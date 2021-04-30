@@ -27,6 +27,7 @@ print(device)
 PATH = '../../data/'
 
 def train_test_split(
+        path_to_csv,
         test_set_percentage = 0.2, 
         validation_set_percentage = 0.1,
         show_plot = False,
@@ -43,7 +44,7 @@ def train_test_split(
         test = 'nv'
         print(dic[test])
 
-    with open( PATH + 'HAM10000_metadata.csv', 'r' ) as csvfile:		
+    with open(path_to_csv, 'r' ) as csvfile:		
         reader = csv.reader(csvfile, delimiter=',', quotechar='|')		
         next(reader)
         for row in reader:
@@ -78,8 +79,9 @@ def train_test_split(
           labels_count[l] = 1
           
     # printing the elements frequencies
-    for key in range(7):
-        print(f"{key}: {labels_count[key]}")
+    if debug:
+        for key in range(7):
+            print(f"{key}: {labels_count[key]}")
 
 
     # compute training and test set
@@ -190,7 +192,7 @@ def train_test_split(
 #                 training_names_vasc[0]]
         
 
-def train_network(training_names, validation_names, test_names):
+def train_network(training_names, validation_names, test_names, path_to_csv, path_to_images, path_to_masks):
     '''    
     im = PIL.Image.open("../data/images/ISIC_0024306.jpg")
     imTensor = transform_data(im)
@@ -223,8 +225,9 @@ def train_network(training_names, validation_names, test_names):
     model.to(device)
 
     trainDataset = CustomImageDataset(
-            PATH + 'HAM10000_metadata.csv',
-            '../data/images',
+            path_to_csv,
+            path_to_images,
+            path_to_masks,
             transform_data_seg_1 = customDatasetSeg.transform_data_seg_1,
             transform_toTensor = customDatasetSeg.transform_toTensor,
             transform_data_seg_2 = customDatasetSeg.transform_data_seg_2,
@@ -255,7 +258,7 @@ def train_network(training_names, validation_names, test_names):
         count_batch = 0
         acc_seg = 0
         for batch_ex in tqdm(iter(train_dl)):
-            #print(batch_ex['image'].shape)
+            print(batch_ex['image'].shape)
             #print(batch_ex['mask'].shape)
             prediction = model(batch_ex['image'].to(device))
             #print(prediction.shape)
@@ -294,21 +297,23 @@ def train_network(training_names, validation_names, test_names):
     
     #testData = CustomImageDatasetSeg(PATH +'HAM10000_metadata.csv', PATH +'images', transform = transform_val, list_im = test_names)
     testData = CustomImageDataset(
-        PATH + 'HAM10000_metadata.csv',
-        '../data/images',
+        path_to_csv,
+        path_to_images,
+        path_to_masks,
         transform_data_seg_1 = customDatasetSeg.transform_data_seg_test,
         transform_toTensor = customDatasetSeg.transform_toTensor,
-        transform_data_seg_2 = None,
+        transform_data_seg_2 = customDatasetSeg.transform_data_val,
         list_im = test_names
         )
     test_dl = DataLoader(testData, batch_size = 32, shuffle = False)
     #valData = CustomImageDatasetSeg(PATH + 'HAM10000_metadata.csv', PATH + 'images', transform = transform_val, list_im = validation_names)
     valData = CustomImageDataset(
-        PATH + 'HAM10000_metadata.csv',
-        '../data/images',
+        path_to_csv,
+        path_to_images,
+        path_to_masks,
         transform_data_seg_1 = customDatasetSeg.transform_data_seg_test,
         transform_toTensor = customDatasetSeg.transform_toTensor,
-        transform_data_seg_2 = None,
+        transform_data_seg_2 = customDatasetSeg.transform_data_val,
         list_im = validation_names
         )
     val_dl = DataLoader(valData, batch_size = 32, shuffle = False) 
@@ -318,7 +323,12 @@ def train_network(training_names, validation_names, test_names):
     epochs = 17
     #best_bacc = 0
     #early_stopping = 0
+<<<<<<< HEAD
     print(getModelAccuracy(model, val_dl))
+=======
+    
+    #print(getModelAccuracy(model, test_dl))
+>>>>>>> 155f59de3a805775fd05a442db33663567b29f5e
     for epoch in range(epochs):
         '''
         print("Validate the network before epoch {}".format(epoch))
@@ -401,6 +411,15 @@ if __name__ == '__main__':
     parser.add_argument('test_train_split', help = 'The .pkl file that contains'
             'the train and test split')
     
+    # input path to csv file containing image names including filename (!!!)
+    parser.add_argument('path_to_csv', help = 'Input path to csv file containing image names.')
+    
+    # input path to images
+    parser.add_argument('path_to_images', help = 'Input path to images.')
+    
+    # input path to masks
+    parser.add_argument('path_to_masks', help = 'Input path to masks.')
+    
     args = parser.parse_args()
     try:
         with open(args.test_train_split, 'rb') as f:
@@ -409,7 +428,7 @@ if __name__ == '__main__':
         validation_names = lists['validation_names']
         test_names = lists['test_names']
     except:
-        training_names, validation_names, test_names = train_test_split()
+        training_names, validation_names, test_names = train_test_split(args.path_to_csv)
         lists = {}
         lists['training_names'] = training_names
         lists['validation_names'] = validation_names 
@@ -417,4 +436,10 @@ if __name__ == '__main__':
         with open(args.test_train_split, 'wb') as f:
             pickle.dump(lists, f, pickle.HIGHEST_PROTOCOL)
 
-    train_network(training_names, validation_names, test_names)
+    train_network(training_names, validation_names, test_names, args.path_to_csv, args.path_to_images, args.path_to_masks)
+
+
+# documentation
+#run:
+#train_model_seg.py test_train_split.pkl path_to_csv path_to_images path_to_masks
+# if no test_train_split available, then a new file with a new training, validation and test set is created
