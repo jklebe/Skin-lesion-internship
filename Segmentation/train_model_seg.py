@@ -190,7 +190,81 @@ def train_test_split(
 #                 training_names_mel[0],
 #                 training_names_nv[0],
 #                 training_names_vasc[0]]
+ 
+
+def getModelAccuracy(model, set_dl):
+    ''' determines how many pixels of the output and the mask are same '''
+    ''' returns average value  '''
+    model.eval()
+    count_batch = 0
+    acc_seg = 0
+    for batch_ex in tqdm(iter(set_dl)):
+        print(batch_ex['image'].shape)
+        #print(batch_ex['mask'].shape)
+        prediction = model(batch_ex['image'].to(device))
+        #print(prediction.shape)
+        prediction = torch.argmax(prediction, dim = 1, keepdims = True)
+        prediction = prediction.detach().numpy()
+        mask = batch_ex['mask'].detach().numpy()
+        #print(prediction.shape)
+        #print(mask.shape)
+        #print(np.sum(prediction == mask))
+        #print(224*224*32)
+        #print(np.sum(np.ones_like(prediction)))
+        acc_seg += np.sum(prediction == mask) / (np.sum(np.ones_like(prediction)))
+        #print('acc_seg: ', acc_seg)
+        count_batch += 1
         
+    acc_seg = acc_seg/ count_batch
+    
+    return acc_seg
+    
+def JaccardAccuracy(IaU_arr):
+    ''' determines the Jaccard coeff of all predictions at once
+    using sum of the outputs of the IaU func ( = IaU_arr) '''
+    jacc = 0
+    for i in range(7):
+        IoU =  IaU_arr[i] / IaU_arr[i+7]
+        if IoU <= 0.65:
+            IoU = 0
+        jacc += IoU
+    jacc = jacc / 7.0
+    return jacc
+    
+def IoU(IaU_arr):
+    jacc = 0
+    for i in range(7):
+        jacc +=  IaU_arr[i] / IaU_arr[i+7]
+    jacc = jacc / 7.0
+    return jacc
+   
+    
+def IaU(mask, prediction):
+    ''' 
+    determines intersection and union of mask and prediction 
+    returns np.array with 15 entries: first 7 entries are intersection for classes 0 to 6
+    entries 7 to 13: values of union for classes 0 to 6 
+    '''
+    arr = np.zeros(14)
+    prediction = torch.argmax(prediction, dim = 1, keepdims = True)
+    
+    
+    
+    for i in range(7):
+    
+        prediction_akiec = torch.zeros_like(prediction)
+        prediction_akiec[prediction == i] = 1
+        
+        mask_akiec = torch.zeros_like(prediction)
+        mask_akiec[mask == i] = 1
+        
+        intersection_akiec = torch.sum(prediction_akiec * mask_akiec)
+        union_akiec = torch.sum(prediction_akiec) + torch.sum(mask_akiec) - intersection_akiec
+        
+        arr[i] = intersection_akiec
+        arr[i + 7] = union_akiec
+        
+    return arr 
 
 def train_network(training_names, validation_names, test_names, path_to_csv, path_to_images, path_to_masks):
     '''    
@@ -251,48 +325,17 @@ def train_network(training_names, validation_names, test_names, path_to_csv, pat
     train_dl = DataLoader(trainDataset, batch_size = 32, shuffle = True)
     #train_dl = DataLoader(overfitDataset, batch_size = 10, shuffle = True)
 
-    def getModelAccuracy(model, train_dl):
-        ''' determines how many pixels of the output and the mask are same '''
-        ''' returns average value  '''
-        model.eval()
-        count_batch = 0
-        acc_seg = 0
-        for batch_ex in tqdm(iter(train_dl)):
-            print(batch_ex['image'].shape)
-            #print(batch_ex['mask'].shape)
-            prediction = model(batch_ex['image'].to(device))
-            #print(prediction.shape)
-            prediction = torch.argmax(prediction, dim = 1, keepdims = True)
-            prediction = prediction.cpu().detach().numpy()
-            mask = batch_ex['mask'].cpu().detach().numpy()
-            #print(prediction.shape)
-            #print(mask.shape)
-            #print(np.sum(prediction == mask))
-            #print(224*224*32)
-            #print(np.sum(np.ones_like(prediction)))
-            acc_seg += np.sum(prediction == mask) / (np.sum(np.ones_like(prediction)))
-            #print('acc_seg: ', acc_seg)
-            count_batch += 1
-            
-        acc_seg = acc_seg/ count_batch
-        
-        return acc_seg
 
 
 
     # define the optimization
-    #criterion = smp.utils.losses.JaccardLoss()
+    # criterion = smp.utils.losses.JaccardLoss()
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(model.parameters(), lr=0.00003) # stochastic gradient descent
 
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, 2074)
-
-
-    #criterion = nn.CrossEntropyLoss()
-    #optimizer = optim.SGD(resnet34.parameters(), lr=0.001, momentum=0.9)
-
-    #train the model
-
+    epoch_len = len(iter(train_dl))
+    print("epoch_len: ", epoch_len)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epoch_len) # 1037 = 1 epoch
 
     
     #testData = CustomImageDatasetSeg(PATH +'HAM10000_metadata.csv', PATH +'images', transform = transform_val, list_im = test_names)
@@ -318,47 +361,24 @@ def train_network(training_names, validation_names, test_names, path_to_csv, pat
         )
     val_dl = DataLoader(valData, batch_size = 32, shuffle = False) 
     #test_dl = DataLoader(overfitDataset, batch_size = 10, shuffle = False)
-    print('len(testData: ', len(testData))
+    print('len(testData): ', len(testData))
 
-    epochs = 17
+    epochs = 100
     #best_bacc = 0
-    #early_stopping = 0
+    early_stopping = 0
+    best_Jacc = 0
     
-    #print(getModelAccuracy(model, test_dl))
+    
+    IaU_arr = np.zeros(14)
     for epoch in range(epochs):
-        '''
-        print("Validate the network before epoch {}".format(epoch))
-        resnet34.eval()
-        mat = np.zeros((7,7))
-        for _, batch in tqdm(enumerate(val_dl)):
-            output = resnet34(batch['image'].to(device)).detach().cpu().numpy()
-            for j in range(output.shape[0]):
-                mat[np.argmax(output[j]), batch['label'][j]] = mat[np.argmax(output[j]), batch['label'][j]] + 1
-
-        print(mat)
-        print(np.trace(mat) / np.sum(mat))
-        bacc = 0
-        mean_recall = 0
-        for i in range(7):
-            bacc = bacc + mat[i,i] / (7 * np.sum(mat[:,i]))
-            mean_recall = mean_recall + mat[i,i] / (7 * np.sum(mat[i]) + 0.1)
-        print(bacc)
-        print(mean_recall)
-        if bacc > best_bacc:    
-            torch.save(resnet34.state_dict(), 'model_best.pt')
-            best_bacc = bacc
-            early_stopping = 0
-        else:
-            early_stopping = early_stopping + 1
-            if early_stopping >= 10:
-                print("stopped due to not improving during the last ten epochs")
-                break
-        print("Best accuracy at the moment: {}, ({} epochs until early stopping)".format(best_bacc, 10 - early_stopping))
-        '''
         
         model.train()
         epoch_loss = 0
         for batch in tqdm(iter(train_dl)):
+        
+            #print('batch[image].shape: ', batch['image'].shape)
+            #print('batch[mask].shape: ', batch['mask'].shape)
+            
             #print(i)
             #print(batch['label'])
             
@@ -367,6 +387,7 @@ def train_network(training_names, validation_names, test_names, path_to_csv, pat
             
             # compute the model outputs
             output_model = model(batch['image'].to(device))
+            #print('output_model.shape: ', output_model.shape)
             
             # calc loss
             loss = criterion(output_model, batch['mask'].to(device).squeeze())
@@ -378,27 +399,50 @@ def train_network(training_names, validation_names, test_names, path_to_csv, pat
             # update model weights
             optimizer.step()
             scheduler.step()
+            
+            IaU_arr += IaU(batch['mask'], output_model)
+            #print('IaU: ', IaU_arr)
+
         print(epoch_loss)
         
-        print(getModelAccuracy(model, val_dl))
-    '''   
-    resnet34.eval()
-    mat = np.zeros((7,7))
-    for _, batch in tqdm(enumerate(test_dl)):
-        output = resnet34(batch['image'].to(device)).detach().cpu().numpy()
-        for j in range(output.shape[0]):
-            mat[np.argmax(output[j]), batch['label'][j]] = mat[np.argmax(output[j]), batch['label'][j]] + 1
+        print("Training Epoch's acc: ", getModelAccuracy(model, val_dl))
+        print("Training Epoch's Jaccard score: ", JaccardAccuracy(IaU_arr))
+        
+        # Validation set
+        print("Validate the network after epoch {} on val. set ".format(epoch))
+        model.eval()
 
-    print(mat)
-    print(np.trace(mat) / np.sum(mat))
-    bacc = 0
-    mean_recall = 0
-    for i in range(7):
-        bacc = bacc + mat[i,i] / (7 * np.sum(mat[:,i]))
-        mean_recall = mean_recall + mat[i,i] / (7 * np.sum(mat[i]) + 0.1)
-    print(bacc)
-    print(mean_recall)
-    '''
+        IaU_arr_val = np.zeros(14)
+        for batch in tqdm(iter(val_dl)):
+            output_val = model(batch['image'].to(device))
+            IaU_arr_val += IaU(batch['mask'], output_val)
+        Jacc_val = JaccardAccuracy(IaU_arr_val)
+
+        
+        if Jacc_val > best_Jacc:    
+            torch.save(model.state_dict(), 'model_best_seg.pt')
+            best_Jacc = Jacc_val
+            early_stopping = 0
+        else:
+            early_stopping = early_stopping + 1
+            if early_stopping >= 10:
+                print("stopped due to not improving during the last ten epochs")
+                break
+        print("Best Jaccard score at the moment: {}, ({} epochs until early stopping)".format(best_Jacc, 10 - early_stopping))
+        
+    # test set
+    print("Test the network after epoch {} on test set ".format(epoch))
+    model.load_state_dict(torch.load('model_best_seg.pt', map_location=device))
+    model.eval()
+
+    IaU_arr_val = np.zeros(14)
+    for batch in tqdm(iter(test_dl)):
+        output_val = model(batch['image'].to(device))
+        IaU_arr_val += IaU(batch['mask'], output_val)
+    Jacc_val = JaccardAccuracy(IaU_arr_val)
+    
+    print('Final Jaccard score: ', JaccardAccuracy(IaU_arr_val))
+
     
 
 if __name__ == '__main__':
