@@ -195,11 +195,14 @@ def train_test_split(
 def getModelAccuracy(model, set_dl):
     ''' determines how many pixels of the output and the mask are same '''
     ''' returns average value  '''
-    model.eval()
+    try: 
+        model.eval()
+    except:
+        pass
     count_batch = 0
     acc_seg = 0
     for batch_ex in tqdm(iter(set_dl)):
-        print(batch_ex['image'].shape)
+        #print(batch_ex['image'].shape)
         #print(batch_ex['mask'].shape)
         prediction = model(batch_ex['image'].to(device))
         #print(prediction.shape)
@@ -367,6 +370,7 @@ def train_network(training_names, validation_names, test_names, path_to_csv, pat
     #best_bacc = 0
     early_stopping = 0
     best_Jacc = 0
+    best_IoU = 0
     
     
     IaU_arr = np.zeros(14)
@@ -417,8 +421,9 @@ def train_network(training_names, validation_names, test_names, path_to_csv, pat
             output_val = model(batch['image'].to(device))
             IaU_arr_val += IaU(batch['mask'], output_val)
         Jacc_val = JaccardAccuracy(IaU_arr_val)
+        IoU_val = IoU(IaU_arr_val)
 
-        
+        '''
         if Jacc_val > best_Jacc:    
             torch.save(model.state_dict(), 'model_best_seg.pt')
             best_Jacc = Jacc_val
@@ -429,6 +434,17 @@ def train_network(training_names, validation_names, test_names, path_to_csv, pat
                 print("stopped due to not improving during the last ten epochs")
                 break
         print("Best Jaccard score at the moment: {}, ({} epochs until early stopping)".format(best_Jacc, 10 - early_stopping))
+        '''
+        if IoU_val > best_IoU:    
+            torch.save(model.state_dict(), 'model_best_seg.pt')
+            best_IoU = IoU_val
+            early_stopping = 0
+        else:
+            early_stopping = early_stopping + 1
+            if early_stopping >= 10:
+                print("stopped due to not improving during the last ten epochs")
+                break
+        print("Best IoU at the moment: {}, ({} epochs until early stopping)".format(best_IoU, 10 - early_stopping))       
         
     # test set
     print("Test the network after epoch {} on test set ".format(epoch))
