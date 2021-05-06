@@ -226,6 +226,7 @@ def JaccardAccuracy(IaU_arr):
     ''' determines the Jaccard coeff of all predictions at once
     using sum of the outputs of the IaU func ( = IaU_arr) '''
     jacc = 0
+    print(IaU_arr)
     for i in range(7):
         IoU =  IaU_arr[i] / IaU_arr[i+7]
         if IoU <= 0.65:
@@ -268,6 +269,27 @@ def IaU(mask, prediction):
         arr[i + 7] = union_akiec
         
     return arr 
+    
+def pixel_accuracy(batch_mask, batch_prediction, percent):
+    '''
+    Compares each pixel. If percent % of the pixels are same,
+    adds to n_percent. Returns n_percent.
+    '''
+    n_masks = batch_mask.shape[0]
+    n_elements = torch.numel(batch_mask[0])
+    count = 0
+    batch_prediction = torch.argmax(batch_prediction, dim = 1, keepdims = True)
+    count_maskRatio = 0
+    
+    for i in range(n_masks):
+        #print((batch_mask[i] == batch_prediction[i]).sum())
+        if (batch_mask[i] == batch_prediction[i]).sum() >= percent * n_elements:
+            count += 1
+            #print(count)
+        if (batch_mask[i] != 7).sum() < (1 - percent) * n_elements:
+            count_maskRatio += 1
+    
+    return (count, n_masks, count_maskRatio)
 
 def train_network(training_names, validation_names, test_names, path_to_csv, path_to_images, path_to_masks):
     '''    
@@ -378,6 +400,7 @@ def train_network(training_names, validation_names, test_names, path_to_csv, pat
         
         model.train()
         epoch_loss = 0
+        
         for batch in tqdm(iter(train_dl)):
         
             #print('batch[image].shape: ', batch['image'].shape)
@@ -422,6 +445,8 @@ def train_network(training_names, validation_names, test_names, path_to_csv, pat
             IaU_arr_val += IaU(batch['mask'], output_val)
         Jacc_val = JaccardAccuracy(IaU_arr_val)
         IoU_val = IoU(IaU_arr_val)
+        
+        
 
         '''
         if Jacc_val > best_Jacc:    
