@@ -22,7 +22,7 @@ def ratio_backgroundVSlesion(batch_mask):
     ''' determines how many px are lesion and how many are background
     returns (count_lesion, count_background)
     count_lesion: No. of pixels that belong to lesion
-    count_background: No. of picels that belong to background
+    count_background: No. of pixels that belong to background
     '''
     count_background = 0
     count_lesion = 0
@@ -38,7 +38,9 @@ def acc_of_nobackground(batch_mask, batch_prediction, percentage=0.9):
     are correctly determined under the condition that the pixels do not belong to background
     '''
     n_masks = batch_mask.shape[0]
-    n_elements = (batch_mask[0] != 7).sum()
+    
+    n_elements = (batch_mask != 7).sum(dim = [1,2,3])
+    #print('n_elements: ', n_elements.shape)
     # Ab hier weiter machen.
     count = 0
     batch_prediction = torch.argmax(batch_prediction, dim = 1, keepdims = True)
@@ -47,7 +49,7 @@ def acc_of_nobackground(batch_mask, batch_prediction, percentage=0.9):
     
     for i in range(n_masks):
         #print((batch_mask[i] == batch_prediction[i]).sum())
-        if (batch_mask[i] == batch_prediction[i]).sum() >= percentage * n_elements:
+        if (batch_mask[i] == batch_prediction[i]).sum() >= percentage * n_elements[i]:
             count += 1
     
     return (count)
@@ -86,7 +88,7 @@ def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks)
     '''
     
     # accuracy
-    #print("Testset accuracy: ", getModelAccuracy(resnet34, test_dl))
+    print("Testset accuracy: ", getModelAccuracy(resnet34, test_dl))
     
     IaU_arr_val = np.zeros(14)
     count_pixAcc = [0,0,0]
@@ -113,9 +115,9 @@ def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks)
     
     print("Testset Jaccard score: ", Jacc_val)
     print("Testset IoU score: ", IoU_val)
-    print("Pixel accuracy (0.9): ", count_pixAcc[0]/count_pixAcc[1])
-    print("Ratio lesion vs. background: ", ratio_bgVSls[0] / ratio_bgVSls[1])
-    print("No. of masks that meet conditon: lesion <= 0.1 of whole image :", count_pixAcc[2] / count_pixAcc[1])
+    print("Pixel accuracy (0.9) (No_90): ", count_pixAcc[0]/count_pixAcc[1])
+    print("Ratio lesion vs. background [ratio_lesion_background]: ", ratio_bgVSls[0] / ratio_bgVSls[1])
+    print("No. of masks that meet conditon (No_lesion_less10): lesion <= 0.1 of whole image :", count_pixAcc[2] / count_pixAcc[1])
     print("No. of predictions where at least 0.9 of the lesion (w/o background) is predicted correctly: ", count_nobackground/count_pixAcc[1])
 
     #print(mat.astype(int))

@@ -202,20 +202,11 @@ def getModelAccuracy(model, set_dl):
     count_batch = 0
     acc_seg = 0
     for batch_ex in tqdm(iter(set_dl)):
-        #print(batch_ex['image'].shape)
-        #print(batch_ex['mask'].shape)
         prediction = model(batch_ex['image'].to(device))
-        #print(prediction.shape)
         prediction = torch.argmax(prediction, dim = 1, keepdims = True)
         prediction = prediction.cpu().detach().numpy()
         mask = batch_ex['mask'].cpu().detach().numpy()
-        #print(prediction.shape)
-        #print(mask.shape)
-        #print(np.sum(prediction == mask))
-        #print(224*224*32)
-        #print(np.sum(np.ones_like(prediction)))
         acc_seg += np.sum(prediction == mask) / (np.sum(np.ones_like(prediction)))
-        #print('acc_seg: ', acc_seg)
         count_batch += 1
         
     acc_seg = acc_seg/ count_batch
@@ -226,7 +217,7 @@ def JaccardAccuracy(IaU_arr):
     ''' determines the Jaccard coeff of all predictions at once
     using sum of the outputs of the IaU func ( = IaU_arr) '''
     jacc = 0
-    print(IaU_arr)
+    #print(IaU_arr)
     for i in range(7):
         IoU =  IaU_arr[i] / IaU_arr[i+7]
         if IoU <= 0.65:
@@ -272,8 +263,11 @@ def IaU(mask, prediction):
     
 def pixel_accuracy(batch_mask, batch_prediction, percent):
     '''
-    Compares each pixel. If percent % of the pixels are same,
-    adds to n_percent. Returns n_percent.
+    Compares each pixel. Condition: if percent % of the pixels between mask and
+    prediction are same, adds to count. Function returns 
+    1. count: number of prediction which meet condition above.
+    2. n_mask: number of masks in batch batch_mask.
+    3. count_maskRation: number of masks where lesion take < (1-percent) of image
     '''
     n_masks = batch_mask.shape[0]
     n_elements = torch.numel(batch_mask[0])
@@ -282,10 +276,8 @@ def pixel_accuracy(batch_mask, batch_prediction, percent):
     count_maskRatio = 0
     
     for i in range(n_masks):
-        #print((batch_mask[i] == batch_prediction[i]).sum())
         if (batch_mask[i] == batch_prediction[i]).sum() >= percent * n_elements:
             count += 1
-            #print(count)
         if (batch_mask[i] != 7).sum() < (1 - percent) * n_elements:
             count_maskRatio += 1
     
@@ -395,9 +387,10 @@ def train_network(training_names, validation_names, test_names, path_to_csv, pat
     best_IoU = 0
     
     
-    IaU_arr = np.zeros(14)
+    
     for epoch in range(epochs):
         
+        IaU_arr = np.zeros(14)
         model.train()
         epoch_loss = 0
         
@@ -428,12 +421,11 @@ def train_network(training_names, validation_names, test_names, path_to_csv, pat
             scheduler.step()
             
             IaU_arr += IaU(batch['mask'], output_model)
-            #print('IaU: ', IaU_arr)
 
         print(epoch_loss)
         
-        print("Training Epoch's acc: ", getModelAccuracy(model, val_dl))
-        print("Training Epoch's Jaccard score: ", JaccardAccuracy(IaU_arr))
+        print("Validation Epoch's acc: ", getModelAccuracy(model, val_dl))
+        print("Training Epoch's validation Jaccard score: ", JaccardAccuracy(IaU_arr))
         
         # Validation set
         print("Validate the network after epoch {} on val. set ".format(epoch))
@@ -447,19 +439,7 @@ def train_network(training_names, validation_names, test_names, path_to_csv, pat
         IoU_val = IoU(IaU_arr_val)
         
         
-
-        '''
-        if Jacc_val > best_Jacc:    
-            torch.save(model.state_dict(), 'model_best_seg.pt')
-            best_Jacc = Jacc_val
-            early_stopping = 0
-        else:
-            early_stopping = early_stopping + 1
-            if early_stopping >= 10:
-                print("stopped due to not improving during the last ten epochs")
-                break
-        print("Best Jaccard score at the moment: {}, ({} epochs until early stopping)".format(best_Jacc, 10 - early_stopping))
-        '''
+        
         if IoU_val > best_IoU:    
             torch.save(model.state_dict(), 'model_best_seg.pt')
             best_IoU = IoU_val
@@ -480,8 +460,7 @@ def train_network(training_names, validation_names, test_names, path_to_csv, pat
     for batch in tqdm(iter(test_dl)):
         output_val = model(batch['image'].to(device))
         IaU_arr_val += IaU(batch['mask'], output_val)
-    Jacc_val = JaccardAccuracy(IaU_arr_val)
-    
+    Jacc_val = JaccardAccuracy(IaU_arr_val)   
     print('Final Jaccard score: ', JaccardAccuracy(IaU_arr_val))
 
     
