@@ -265,7 +265,7 @@ def pixel_accuracy(batch_mask, batch_prediction, percent):
     '''
     Compares each pixel. Condition: if percent % of the pixels between mask and
     prediction are same, adds to count. Function returns 
-    1. count: number of prediction which meet condition above.
+    1. count: number of predictions which meet condition above.
     2. n_mask: number of masks in batch batch_mask.
     3. count_maskRation: number of masks where lesion take < (1-percent) of image
     '''
