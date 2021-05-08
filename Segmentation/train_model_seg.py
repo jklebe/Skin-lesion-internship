@@ -250,9 +250,10 @@ def IaU(mask, prediction):
         prediction_akiec = torch.zeros_like(prediction)
         prediction_akiec[prediction == i] = 1
         
-        mask_akiec = torch.zeros_like(prediction)
+        mask_akiec = torch.zeros_like(mask)
         mask_akiec[mask == i] = 1
         
+
         intersection_akiec = torch.sum(prediction_akiec * mask_akiec)
         union_akiec = torch.sum(prediction_akiec) + torch.sum(mask_akiec) - intersection_akiec
         
