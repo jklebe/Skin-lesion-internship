@@ -14,6 +14,7 @@ from customDatasetSeg import CustomImageDataset
 from train_model_seg import JaccardAccuracy, IaU, IoU, getModelAccuracy, pixel_accuracy
 import segmentation_models_pytorch as smp
 
+import copy
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(device)
@@ -24,58 +25,47 @@ def ratio_backgroundVSlesion(batch_mask):
     count_lesion: No. of pixels that belong to lesion
     count_background: No. of pixels that belong to background
     '''
-    count_background = 0
-    count_lesion = 0
-    n_masks = batch_mask.shape[0]
-    for i in range(n_masks):
-        count_lesion += (batch_mask[i] != 7).sum()
-        count_background += (batch_mask[i] == 7).sum()
+    
+    count_lesion = (batch_mask != 7).sum()
+    count_background = (batch_mask == 7).sum()
+    
     return (count_lesion, count_background)
     
-def acc_of_nobackground(batch_mask, batch_prediction, percentage=0.9):
+def acc_of_nobackground(batch_mask_tensor, batch_prediction_tensor, percentage=0.9):
     '''
     returns the number of predictions where at least the entered percentage of pixels
     are correctly determined under the condition that the pixels do not belong to background
     '''
+
+    batch_mask = batch_mask_tensor.cpu().detach().numpy()
+    batch_prediction = batch_prediction_tensor.cpu().detach().numpy()
+    batch_mask = copy.copy(batch_mask)
+    batch_prediction = copy.copy(batch_prediction)
+
+    #defining some variables
     n_masks = batch_mask.shape[0]
-    
-    n_elements = (batch_mask != 7).sum(dim = [1,2,3])
-    #print('n_elements: ', n_elements.shape)
-    # Ab hier weiter machen.
+    n_elements = np.sum(np.sum(np.sum(batch_mask != 7, axis = 1), axis = 1), axis = 1)
     count = 0
-    batch_prediction = torch.argmax(batch_prediction, dim = 1, keepdims = True)
     count_maskRatio = 0
-    batch_mask[batch_mask==7] = 8 # change background so it is diff. to background of prediction
     
-    
-    #print(batch_mask[0])
-    print(n_elements)
-    print('percentage: ', percentage)
-    print('n_elements[0]: ', n_elements[0])
-    print('batch_mask[0] == batch_prediction[0]).sum(): ', (batch_mask[0] == batch_prediction[0]).sum().detach().numpy())
-    print('percentage * n_elements[0]: ', percentage * n_elements[0])
-    
-    
+    #prepare pred and mask
+    batch_prediction = np.expand_dims(np.argmax(batch_prediction, axis = 1), axis = 1)
+    batch_mask[batch_mask==7] = -1 # change background so it is diff. to background of prediction
+     
     for i in range(n_masks):
-        #print((batch_mask[i] == batch_prediction[i]).sum())
         if (batch_mask[i] == batch_prediction[i]).sum() >= percentage * n_elements[i]:
             count += 1
     
-    print('count: ', count)
-    print('')
-    return (count)
+    #print('count: ', count)
+    #print('')
+    return count
 
-def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks):
- 
-    '''transform_val = transforms.Compose([
-        transforms.Resize((256,256)),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.7635, 0.5461, 0.5705], std=[0.0896, 0.1212, 0.1330])
-        ]) 
-    '''
+def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks, debug = True):
     
-    #testData = CustomImageDataset('../data/HAM10000_metadata.csv', '../data/images', transform = transform_val, list_im = test_names)    
+    if debug:
+        print('start eval model')
+    
+    # Creatung Dataset and Data Loader
     testData = CustomImageDataset(
         path_to_csv,
         path_to_images,
@@ -90,17 +80,8 @@ def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks)
     resnet34.eval()
     resnet34.to(device)
     
-    #mat = np.zeros((7,7))
-    '''
-    for batch in tqdm(iter(test_dl)):
-        output = resnet34(batch['image'].to(device)).detach().cpu().numpy()
-        for j in range(output.shape[0]):
-            mat[np.argmax(output[j]), batch['label'][j]] = mat[np.argmax(output[j]), batch['label'][j]] + 1
-    '''
-    
-    # accuracy
-    ###print("Testset accuracy: ", getModelAccuracy(resnet34, test_dl))
-    
+
+    #start the tests
     IaU_arr_val = np.zeros(14)
     count_pixAcc = [0,0,0]
     avg_px_lesion = 0
@@ -122,11 +103,7 @@ def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks)
         ratio_bgVSls[1] += ratio_mask_count[1]
         
         count_nobackground90 += acc_of_nobackground(batch['mask'], output_val, 0.9)
-        count_nobackground50 += acc_of_nobackground(batch['mask'], output_val, 0.5)
-        '''if torch.equal(a,b):
-            print('a==b')
-        else: 
-            print('a!=b')'''
+        #count_nobackground50 += acc_of_nobackground(batch['mask'], output_val, 0.5)
         
     Jacc_val = JaccardAccuracy(IaU_arr_val)
     IoU_val = IoU(IaU_arr_val)
@@ -146,19 +123,18 @@ def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks)
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'Programm to train a neural'
             'on a the HAM10000 dataset')
+    
+    #Add parser arguments
     parser.add_argument('model_name', help = 'The model to be tested.')
     parser.add_argument('test_train_split', help = 'The .pkl file that contains'
             'the train and test split')
-    parser.add_argument('--set', help = 'Which set to test. Must be in "val", "train" and "test"')
-    
-    # input path to csv file containing image names including filename (!!!)
-    parser.add_argument('path_to_csv', help = 'Input path to csv file containing image names.')
-    
-    # input path to images
+    parser.add_argument('path_to_csv', help = 'Input path to csv file'
+            'containing image names including filename (!!!).')
     parser.add_argument('path_to_images', help = 'Input path to images.')
-    
-    # input path to masks
     parser.add_argument('path_to_masks', help = 'Input path to masks.')
+    parser.add_argument('--set', help = 'Which set to test. Must be in "val", '
+            '"train" and "test"')
+    
     
     args = parser.parse_args()
     try:
@@ -170,15 +146,16 @@ if __name__ == '__main__':
     
     if args.set == 'val':
         test_names = lists['validation_names']
+        print('Testing on validation set')
     elif args.set == 'train':
         test_names = lists['training_names']
+        print('Testing on training set')
     else:
         test_names = lists['test_names']
+        print('Testing on test set')
+
 
     try:
-        #resnet34 = models.resnet34(pretrained = False)
-        #num_ftrs = resnet34.fc.in_features
-        #resnet34.fc = torch.nn.Linear(num_ftrs, 7)
         resnet34 = smp.Unet(
             encoder_name="resnet34",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
             encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
@@ -190,5 +167,6 @@ if __name__ == '__main__':
     except:
         print("could not load the model")
         exit()
-        
+    
+    print("start eval model")
     eval_model(resnet34, test_names, args.path_to_csv, args.path_to_images, args.path_to_masks)

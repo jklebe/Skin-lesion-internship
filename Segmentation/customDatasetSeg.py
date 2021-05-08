@@ -52,7 +52,6 @@ class CustomImageDataset(Dataset):
         
     def __getLabel__(self, imageName): 
         '''enter the name of the image and get the corresponding label'''
-        #folderName= '../HAM10000_metadata.csv'
         dic = {'akiec':0, 'bcc':1, 'bkl':2, 'df':3, 'mel':4, 'nv':5, 'vasc':6}
         with open(self.labels_dir, 'r' ) as csvfile:		
             reader = csv.reader(csvfile, delimiter=',', quotechar='|')		
