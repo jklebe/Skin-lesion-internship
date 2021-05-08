@@ -47,11 +47,22 @@ def acc_of_nobackground(batch_mask, batch_prediction, percentage=0.9):
     count_maskRatio = 0
     batch_mask[batch_mask==7] = 8 # change background so it is diff. to background of prediction
     
+    
+    #print(batch_mask[0])
+    print(n_elements)
+    print('percentage: ', percentage)
+    print('n_elements[0]: ', n_elements[0])
+    print('batch_mask[0] == batch_prediction[0]).sum(): ', (batch_mask[0] == batch_prediction[0]).sum().detach().numpy())
+    print('percentage * n_elements[0]: ', percentage * n_elements[0])
+    
+    
     for i in range(n_masks):
         #print((batch_mask[i] == batch_prediction[i]).sum())
         if (batch_mask[i] == batch_prediction[i]).sum() >= percentage * n_elements[i]:
             count += 1
     
+    print('count: ', count)
+    print('')
     return (count)
 
 def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks):
@@ -88,14 +99,15 @@ def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks)
     '''
     
     # accuracy
-    print("Testset accuracy: ", getModelAccuracy(resnet34, test_dl))
+    ###print("Testset accuracy: ", getModelAccuracy(resnet34, test_dl))
     
     IaU_arr_val = np.zeros(14)
     count_pixAcc = [0,0,0]
     avg_px_lesion = 0
     count_maskratio = 0
     ratio_bgVSls = [0,0]
-    count_nobackground = 0
+    count_nobackground90 = 0
+    count_nobackground50 = 0
     
     for batch in tqdm(iter(test_dl)):
         output_val = resnet34(batch['image'].to(device))
@@ -109,7 +121,13 @@ def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks)
         ratio_bgVSls[0] += ratio_mask_count[0]
         ratio_bgVSls[1] += ratio_mask_count[1]
         
-        count_nobackground += acc_of_nobackground(batch['mask'], output_val, 0.9)
+        count_nobackground90 += acc_of_nobackground(batch['mask'], output_val, 0.9)
+        count_nobackground50 += acc_of_nobackground(batch['mask'], output_val, 0.5)
+        '''if torch.equal(a,b):
+            print('a==b')
+        else: 
+            print('a!=b')'''
+        
     Jacc_val = JaccardAccuracy(IaU_arr_val)
     IoU_val = IoU(IaU_arr_val)
     
@@ -118,17 +136,10 @@ def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks)
     print("Pixel accuracy (0.9) (No_90): ", count_pixAcc[0]/count_pixAcc[1])
     print("Ratio lesion vs. background [ratio_lesion_background]: ", ratio_bgVSls[0] / ratio_bgVSls[1])
     print("No. of masks that meet conditon (No_lesion_less10): lesion <= 0.1 of whole image :", count_pixAcc[2] / count_pixAcc[1])
-    print("No. of predictions where at least 0.9 of the lesion (w/o background) is predicted correctly: ", count_nobackground/count_pixAcc[1])
+    print("No. of predictions where at least 0.9 of the lesion (w/o background) is predicted correctly: ", count_nobackground90/count_pixAcc[1])
+    print("No. of predictions where at least 0.5 of the lesion (w/o background) is predicted correctly: ", count_nobackground50/count_pixAcc[1])
 
-    #print(mat.astype(int))
-    #print('Accuracy: {}'.format(np.trace(mat) / np.sum(mat)))
-    #bacc = 0
-    #mean_recall = 0
-    '''for i in range(7):
-        bacc = bacc + mat[i,i] / (7 * np.sum(mat[:,i]))
-        mean_recall = mean_recall + mat[i,i] / (7 * np.sum(mat[i]) + 0.1)
-    print('Balanced Accuracy: {}'.format(bacc))
-    print('Mean Recall: {}'.format(mean_recall))'''
+
 
 
 
