@@ -11,7 +11,7 @@ from torchvision import transforms
 import customDatasetSeg
 import train_model_seg
 from customDatasetSeg import CustomImageDataset
-from train_model_seg import JaccardAccuracy, IaU, IoU, getModelAccuracy, pixel_accuracy
+from train_model_seg import JaccardAccuracy, IaU, IoU, getModelAccuracy, pixel_accuracy, make_IoUArr
 import segmentation_models_pytorch as smp
 
 import copy
@@ -56,9 +56,96 @@ def acc_of_nobackground(batch_mask_tensor, batch_prediction_tensor, percentage=0
         if (batch_mask[i] == batch_prediction[i]).sum() >= percentage * n_elements[i]:
             count += 1
     
-    #print('count: ', count)
-    #print('')
     return count
+    
+def IaU_maliciousClass(batch_mask, batch_prediction):
+    ''' 
+    determines intersection and union of mask and prediction 
+    returns np.array with 15 entries: first 7 entries are intersection for classes 0 to 6
+    entries 7 to 13: values of union for classes 0 to 6 
+    
+    modification: bcc and mel have same class and returns arr with IoU.
+    '''
+    arr = np.zeros(14)
+    batch_prediction = torch.argmax(batch_prediction, dim = 1, keepdims = True)
+    
+    batch_prediction_new = copy.deepcopy(batch_prediction)
+    batch_mask_new = copy.deepcopy(batch_mask)
+    
+    batch_prediction_new[batch_prediction_new==4] = 1
+    batch_mask_new[batch_mask_new==4] = 1
+    
+    
+    for i in range(7):
+    
+        prediction_akiec = torch.zeros_like(batch_prediction_new)
+        prediction_akiec[batch_prediction_new == i] = 1
+        
+        mask_akiec = torch.zeros_like(batch_mask_new)
+        mask_akiec[batch_mask_new == i] = 1
+        
+
+        intersection_akiec = torch.sum(prediction_akiec * mask_akiec)
+        union_akiec = torch.sum(prediction_akiec) + torch.sum(mask_akiec) - intersection_akiec
+        
+        arr[i] = intersection_akiec
+        arr[i + 7] = union_akiec
+        
+    return arr
+    
+    
+    
+
+def IaU_noClass(batch_mask, batch_prediction):
+    ''' 
+    determines intersection and union of mask and prediction 
+    returns np.array with 15 entries: first 7 entries are intersection for classes 0 to 6
+    entries 7 to 13: values of union for classes 0 to 6 
+    
+    modification: no classes only lesion and background.
+    '''
+    arr = np.zeros(2)
+    batch_prediction = torch.argmax(batch_prediction, dim = 1, keepdims = True)
+    
+    batch_prediction_new = copy.deepcopy(batch_prediction)
+    batch_mask_new = copy.deepcopy(batch_mask)
+    
+    batch_prediction_new[batch_prediction_new != 7] = 1
+    batch_prediction_new[batch_prediction_new == 7] = 0
+    
+    mask_akiec = torch.zeros_like(batch_mask_new)
+    mask_akiec[batch_mask_new != 7] = 1
+    
+
+    intersection_akiec = torch.sum(batch_prediction_new * mask_akiec)
+    union_akiec = torch.sum(batch_prediction_new) + torch.sum(mask_akiec) - intersection_akiec
+        
+    arr[0] = intersection_akiec
+    arr[1] = union_akiec
+        
+    return arr
+
+
+def IoU_noClass(arr):
+    ''' takes the array of func IaU and returns arr of IoU for each class '''
+    
+    return arr[0]/arr[1]
+
+
+
+    
+def make_IoUArr_mal(IaU_arr):
+    ''' takes the array of func IaU and returns arr of IoU for each class '''#
+    arr = np.zeros(7)
+    
+    for i in range(7):
+        if i != 4: 
+            arr[i] = IaU_arr[i]/IaU_arr[i+7]
+        else:
+            arr[i] = 0
+        
+    return arr
+    
 
 def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks, debug = True):
     
@@ -81,8 +168,12 @@ def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks,
     resnet34.to(device)
     
 
+
     #start the tests
     IaU_arr_val = np.zeros(14)
+    IaU_arr_malClass = np.zeros(14)
+    IaU_arr_noClass = np.zeros(2)
+    
     count_pixAcc = [0,0,0]
     avg_px_lesion = 0
     count_maskratio = 0
@@ -92,23 +183,30 @@ def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks,
     
     for batch in tqdm(iter(test_dl)):
         output_val = resnet34(batch['image'].to(device))
-        IaU_arr_val += IaU(batch['mask'], output_val)
-        px_acc_tupel = pixel_accuracy(batch['mask'], output_val, 0.9)
+        IaU_arr_val += IaU(batch['mask'].clone(), output_val.clone())
+        IaU_arr_malClass += IaU_maliciousClass(batch['mask'].clone(), output_val.clone())
+        IaU_arr_noClass += IaU_noClass(batch['mask'].clone(), output_val.clone())
+        
+        px_acc_tupel = pixel_accuracy(batch['mask'].clone(), output_val.clone(), 0.9)
         count_pixAcc[0] += px_acc_tupel[0]
         count_pixAcc[1] += px_acc_tupel[1]
         count_pixAcc[2] += px_acc_tupel[2]
         #print(count_pixAcc)
-        ratio_mask_count = ratio_backgroundVSlesion(batch['mask'])
+        ratio_mask_count = ratio_backgroundVSlesion(batch['mask'].clone())
         ratio_bgVSls[0] += ratio_mask_count[0]
         ratio_bgVSls[1] += ratio_mask_count[1]
         
-        count_nobackground90 += acc_of_nobackground(batch['mask'], output_val, 0.9)
-        #count_nobackground50 += acc_of_nobackground(batch['mask'], output_val, 0.5)
+        count_nobackground90 += acc_of_nobackground(batch['mask'].clone(), output_val.clone(), 0.9)
+        count_nobackground50 += acc_of_nobackground(batch['mask'].clone(), output_val.clone(), 0.5)
         
     Jacc_val = JaccardAccuracy(IaU_arr_val)
     IoU_val = IoU(IaU_arr_val)
     
+    #print("Testset accuracy: ", getModelAccuracy(resnet34, test_dl))
     print("Testset Jaccard score: ", Jacc_val)
+    print("IoU array: ", make_IoUArr(IaU_arr_val))
+    print("IoU array with one mal group: ", make_IoUArr_mal(IaU_arr_malClass))
+    print("IoU array with no class: ", IoU_noClass(IaU_arr_noClass))
     print("Testset IoU score: ", IoU_val)
     print("Pixel accuracy (0.9) (No_90): ", count_pixAcc[0]/count_pixAcc[1])
     print("Ratio lesion vs. background [ratio_lesion_background]: ", ratio_bgVSls[0] / ratio_bgVSls[1])
