@@ -20,12 +20,14 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(device)
 
 
+
+
 def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks, debug = True):
     
     if debug:
         print('start eval model')
     
-    # Creatung Dataset and Data Loader
+    # Creating Dataset and Data Loader
     testData = CustomImageDataset(
         path_to_csv,
         path_to_images,
@@ -51,7 +53,7 @@ def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks,
     for batch in tqdm(iter(test_dl)):
         output_val = resnet34(batch['image'].to(device))
         print('output_val.shape: ', output_val.shape)
-        #print('batch["name"]: ', batch["name"])
+
         output_argmax = copy.deepcopy(np.expand_dims(np.argmax(output_val.detach().numpy(), axis = 1), axis = 1))
         
         for i_image in range(batch['image'].shape[0]):    # iterate through images in batch
@@ -62,12 +64,8 @@ def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks,
                 for col in range(batch['image'].shape[2]):  # iterate through pixels of image (cols)
                     
                     label = output_argmax[i_image][0][row][col]
-                    #print(output_argmax)
-                    #print('label: ', label)
-                    
                     count_labelMatches[label] += 1    # increase label count if label is argmax
                     sum_labelMatches[label] += output_val[i_image][label][row][col]
-                    #print('Label: ', label, 'sum_labelMatches[label]: ', sum_labelMatches[label])
             
             for i_label in range(noClasses):   
                 all_count_labelMatches[count_image][i_label] = count_labelMatches[i_label]

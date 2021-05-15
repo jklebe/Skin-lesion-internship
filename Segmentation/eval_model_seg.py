@@ -263,7 +263,7 @@ if __name__ == '__main__':
 
         resnet34.load_state_dict(torch.load(args.model_name, map_location=device))
     except:
-        print("could not load the model")
+        print("could not load the model: ", args.model_name)
         exit()
     
     print("start eval model")

@@ -18,6 +18,8 @@ import pickle
 import customDatasetSeg
 from customDatasetSeg import CustomImageDataset
 
+from lossmulti import LossMulti
+
 #import os
 #os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
@@ -262,6 +264,15 @@ def IaU(mask, prediction):
         
     return arr 
     
+def make_IoUArr(IaU_arr):
+    ''' takes the array of func IaU and returns arr of IoU for each class '''#
+    arr = np.zeros(7)
+    
+    for i in range(7):
+        arr[i] = IaU_arr[i]/IaU_arr[i+7]
+        
+    return arr
+    
 def pixel_accuracy(batch_mask, batch_prediction, percent):
     '''
     Compares each pixel. Condition: if percent % of the pixels between mask and
@@ -348,7 +359,8 @@ def train_network(training_names, validation_names, test_names, path_to_csv, pat
 
     # define the optimization
     # criterion = smp.utils.losses.JaccardLoss()
-    criterion = nn.CrossEntropyLoss()
+    ###criterion = nn.CrossEntropyLoss()
+    criterion = LossMulti(jaccard_weight=0.5, class_weights=None, num_classes=7)
     optimizer = optim.AdamW(model.parameters(), lr=0.00003) # stochastic gradient descent
 
     epoch_len = len(iter(train_dl))
