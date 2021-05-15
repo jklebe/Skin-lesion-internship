@@ -1,3 +1,9 @@
+''' 
+Author: Vladimir Iglovikov
+Source: https://github.com/ternaus/robot-surgery-segmentation/blob/master/loss.py
+MIT License
+ '''
+
 import torch
 from torch import nn
 from torch.nn import functional as F
