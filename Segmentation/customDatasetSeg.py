@@ -92,7 +92,7 @@ class CustomImageDataset(Dataset):
         mask = mask.type(torch.long)
         
             
-        sample = {"image": image, "mask":mask}
+        sample = {"image": image, "mask":mask, "name": self.img_list[idx]}
         return sample
 
 
