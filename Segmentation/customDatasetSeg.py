@@ -40,10 +40,10 @@ class CustomImageDataset(Dataset):
 
     # Aenderung 2
     def __create4LayersImage__(self, image, imageSeg):
-        ''' makes image and the image containing the segmentation (imageSeg) '''
-        ''' to tensor, applies colorJitter to image and normalizes image     '''
-        ''' adds a forth layer to the image which is the segmentation image  '''
-        ''' return concatenated tensor                                       '''
+        ''' makes image and the image containing the segmentation (imageSeg) 
+         to tensor, applies colorJitter to image and normalizes image     
+         adds a forth layer to the image which is the segmentation image  
+         return concatenated tensor                                       '''
         #imTensor = transform_data_seg_1(image)
         #imSegTensoro = transform_toTensor(imageSeg)
         conTensor = torch.cat((image, imageSeg), 0)
@@ -52,7 +52,6 @@ class CustomImageDataset(Dataset):
         
     def __getLabel__(self, imageName): 
         '''enter the name of the image and get the corresponding label'''
-        #folderName= '../HAM10000_metadata.csv'
         dic = {'akiec':0, 'bcc':1, 'bkl':2, 'df':3, 'mel':4, 'nv':5, 'vasc':6}
         with open(self.labels_dir, 'r' ) as csvfile:		
             reader = csv.reader(csvfile, delimiter=',', quotechar='|')		
@@ -93,16 +92,16 @@ class CustomImageDataset(Dataset):
         mask = mask.type(torch.long)
         
             
-        sample = {"image": image, "mask":mask}
+        sample = {"image": image, "mask":mask, "name": self.img_list[idx]}
         return sample
 
 
 
-# Aenderung 1
-''' ToTensor needs a PIL or np-arr. '''
-''' transforms image to tensor,'''
-''' applies colorJitter to image and normalizes image   '''
-''' returns tensor with rgb layer and a forth layer which is the segmentation image '''
+
+''' ToTensor needs a PIL or np-arr.
+ transforms image to tensor,
+ applies colorJitter to image and normalizes image
+ returns tensor with rgb layer and a forth layer which is the segmentation image '''
 transform_data_seg_1 = transforms.Compose([
     transforms.ColorJitter(0.4,0.4,0.4),
     transforms.ToTensor(),
@@ -110,12 +109,10 @@ transform_data_seg_1 = transforms.Compose([
     transforms.Normalize(mean=[0.7635, 0.5461, 0.5705], std=[0.0896, 0.1212, 0.1330])
     ])
     
-# Aenderung 3
-''' ToTensor needs a PIL or np-arr. '''
-''' transforms segmentation image to tensor,'''
+
 transform_toTensor = transforms.ToTensor()
     
-# Aenderung 4
+
 transform_data_seg_2 = transforms.Compose([
     transforms.Resize((256,256)),
     transforms.RandomCrop(224),
@@ -125,7 +122,7 @@ transform_data_seg_2 = transforms.Compose([
     transforms.RandomPerspective(distortion_scale=0.2),
     ])
    
-# Aenderung 5
+   
 transform_data_val = transforms.Compose([
     transforms.Resize((256, 256)),
     transforms.CenterCrop(224)
