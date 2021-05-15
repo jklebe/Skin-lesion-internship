@@ -269,7 +269,15 @@ def IaU(mask, prediction):
         
     return arr 
 
-def train_network(training_names, validation_names, test_names, path_to_csv, path_to_images, path_to_masks):
+def train_network(
+        training_names, 
+        validation_names, 
+        test_names, 
+        path_to_csv, 
+        path_to_images, 
+        path_to_masks, 
+        pg = False,
+        custom_weights = None):
     '''    
     im = PIL.Image.open("../data/images/ISIC_0024306.jpg")
     imTensor = transform_data(im)
@@ -300,6 +308,8 @@ def train_network(training_names, validation_names, test_names, path_to_csv, pat
     
     model.train()
     model.to(device)
+    if custom_weights != None:
+        model.encoder.load_state_dict(torch.load(custom_weights, map_location=device))
 
     trainDataset = CustomImageDataset(
             path_to_csv,
@@ -366,16 +376,83 @@ def train_network(training_names, validation_names, test_names, path_to_csv, pat
     #test_dl = DataLoader(overfitDataset, batch_size = 10, shuffle = False)
     print('len(testData): ', len(testData))
 
+    ########### Progressive growing pretraining ##########
+    
+    best_IoU = 0
+    if pg:
+        for progression in range(6):
+            print("Progressive Growing Pretraining. Starting with Progression level {}: images of size {}".format(progression, 7 * 2 ** progression))
+            trainDataset = CustomImageDataset(
+                    path_to_csv,
+                    path_to_images,
+                    path_to_masks,
+                    transform_data_seg_1 = customDatasetSeg.transform_data_seg_1,
+                    transform_toTensor = customDatasetSeg.transform_toTensor,
+                    transform_data_seg_2 = customDatasetSeg.transform_pg(progression),
+                    list_im = training_names
+            )
+
+            for epoch in range(3):
+                IaU_arr = np.zeros(14)
+                model.train()
+                for batch in tqdm(iter(train_dl)):
+            
+                    #print('batch[image].shape: ', batch['image'].shape)
+                    #print('batch[mask].shape: ', batch['mask'].shape)
+                    
+                    #print(i)
+                    #print(batch['label'])
+                    
+                    # clear the gradients
+                    optimizer.zero_grad()
+                    
+                    # compute the model outputs
+                    output_model = model(batch['image'].to(device))
+                    #print('output_model.shape: ', output_model.shape)
+                    
+                    # calc loss
+                    loss = criterion(output_model, batch['mask'].to(device).squeeze())
+
+                    # calculate derivative for each parameter
+                    loss.backward()
+                    
+                    # update model weights
+                    optimizer.step()
+                    scheduler.step()
+                    
+                    IaU_arr += IaU(batch['mask'], output_model)
+                    #print('IaU: ', IaU_arr)
+
+            
+                print("Pretraining Epoch's acc: ", getModelAccuracy(model, val_dl))
+                print("Pretraining Epoch's Jaccard score: ", JaccardAccuracy(IaU_arr))
+            
+                # Validation set
+                print("Validate the network after epoch {} of pretraining on val. set ".format(epoch))
+                model.eval()
+
+                IaU_arr_val = np.zeros(14)
+                for batch in tqdm(iter(val_dl)):
+                    output_val = model(batch['image'].to(device))
+                    IaU_arr_val += IaU(batch['mask'], output_val)
+                Jacc_val = JaccardAccuracy(IaU_arr_val)
+                IoU_val = IoU(IaU_arr_val)
+
+                if IoU_val > best_IoU:    
+                    torch.save(model.state_dict(), 'model_best_seg.pt')
+                    best_IoU = IoU_val
+                
+                print("Best IoU at the moment: {}, (No early stopping during pretraining)".format(best_IoU))       
+
+    ######## End Pretraining #######
+
     epochs = 100
     #best_bacc = 0
     early_stopping = 0
     best_Jacc = 0
-    best_IoU = 0
-    
-    
-    IaU_arr = np.zeros(14)
     for epoch in range(epochs):
-        
+            
+        IaU_arr = np.zeros(14)
         model.train()
         epoch_loss = 0
         for batch in tqdm(iter(train_dl)):
@@ -475,7 +552,13 @@ if __name__ == '__main__':
     
     # input path to masks
     parser.add_argument('path_to_masks', help = 'Input path to masks.')
-    
+
+    # progressive growing as pretraining
+    parser.add_argument('--pg', action='store_true', help= 'indicate that you want to use progressive growing as a pretraining step')
+
+    # Use custom weights as initialization
+    parser.add_argument('-cw', default=None, help = 'path to the weighst, that should be useed for the encoder')
+
     args = parser.parse_args()
     try:
         with open(args.test_train_split, 'rb') as f:
@@ -492,7 +575,7 @@ if __name__ == '__main__':
         with open(args.test_train_split, 'wb') as f:
             pickle.dump(lists, f, pickle.HIGHEST_PROTOCOL)
 
-    train_network(training_names, validation_names, test_names, args.path_to_csv, args.path_to_images, args.path_to_masks)
+    train_network(training_names, validation_names, test_names, args.path_to_csv, args.path_to_images, args.path_to_masks, pg = args.pg, custom_weights = args.cw)
 
 
 # documentation

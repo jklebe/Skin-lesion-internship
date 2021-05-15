@@ -137,3 +137,28 @@ transform_data_seg_test = transforms.Compose([
     #transforms.Normalize(mean=[194.6979, 139.2626, 145.4852], std=[22.8551, 30.9032, 33.9032])
     transforms.Normalize(mean=[0.7635, 0.5461, 0.5705], std=[0.0896, 0.1212, 0.1330])
     ])
+
+
+def transform_pg(level = 0):
+    """
+    level 0 :   7x  7
+    level 1 :  14x 14
+    level 2 :  28x 28
+    level 3 :  56x 56
+    level 4 : 112x112
+    level 5 : 224x224
+    """
+
+    if level > 5:
+        raise Exception()
+    transform_data = transforms.Compose([
+        transforms.Resize((2**(level + 3), 2**(level + 3))),
+        transforms.RandomCrop(7 * 2 ** level),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomVerticalFlip(),
+        transforms.RandomAffine(degrees=40, scale=(.9, 1.1), shear=0),
+        transforms.RandomPerspective(distortion_scale=0.2),
+    ])
+
+    return transform_data
+
