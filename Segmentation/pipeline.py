@@ -52,7 +52,7 @@ def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks,
     count_image = 0
     for batch in tqdm(iter(test_dl)):
         output_val = resnet34(batch['image'].to(device))
-        print('output_val.shape: ', output_val.shape)
+        #print('output_val.shape: ', output_val.shape)
 
         output_argmax = copy.deepcopy(np.expand_dims(np.argmax(output_val.detach().numpy(), axis = 1), axis = 1))
         
@@ -80,8 +80,8 @@ def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks,
             
     # determine max for each class
     print('avg.shape: ', avg.shape)  
-    avg_argmax = copy.deepcopy(np.expand_dims(np.argmax(avg, axis = 0), axis = 0))
-    print(avg_argmax[0])
+    avg_argmax = copy.deepcopy(np.argmax(avg, axis = 0))
+    print(avg_argmax)
     
     for i in range(count_image):
         print('Label: ', i, '\t Image: ', list_names[avg_argmax[i]])
