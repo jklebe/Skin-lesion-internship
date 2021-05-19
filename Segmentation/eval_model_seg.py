@@ -11,13 +11,26 @@ from torchvision import transforms
 import customDatasetSeg
 import train_model_seg
 from customDatasetSeg import CustomImageDataset
-from train_model_seg import JaccardAccuracy, IaU, IoU, getModelAccuracy, pixel_accuracy, make_IoUArr
+from train_model_seg import JaccardAccuracy, IaU, IoU, pixel_accuracy, make_IoUArr
 import segmentation_models_pytorch as smp
+from postprocessing import postprocess_batch as postprocess_batch
 
 import copy
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(device)
+
+
+def getModelAccuracy(batch, mask):
+    prediction = torch.argmax(batch, dim = 1, keepdims = True)
+    prediction = prediction.cpu().detach().numpy()
+    mask = mask.cpu().detach().numpy()
+    acc_seg = np.sum(prediction == mask) / (np.sum(np.ones_like(prediction)))
+    count_batch = batch.shape[0]
+        
+    return acc_seg * count_batch, count_batch
+    
+
 
 def ratio_backgroundVSlesion(batch_mask):
     ''' determines how many px are lesion and how many are background
@@ -36,7 +49,8 @@ def acc_of_nobackground(batch_mask_tensor, batch_prediction_tensor, percentage=0
     returns the number of predictions where at least the entered percentage of pixels
     are correctly determined under the condition that the pixels do not belong to background
     '''
-
+    
+    l = []
     batch_mask = batch_mask_tensor.cpu().detach().numpy()
     batch_prediction = batch_prediction_tensor.cpu().detach().numpy()
     batch_mask = copy.copy(batch_mask)
@@ -55,8 +69,9 @@ def acc_of_nobackground(batch_mask_tensor, batch_prediction_tensor, percentage=0
     for i in range(n_masks):
         if (batch_mask[i] == batch_prediction[i]).sum() >= percentage * n_elements[i]:
             count += 1
+            l.append(i)
     
-    return count
+    return count, l
     
 def IaU_maliciousClass(batch_mask, batch_prediction):
     ''' 
@@ -147,7 +162,7 @@ def make_IoUArr_mal(IaU_arr):
     return arr
     
 
-def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks, debug = True):
+def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks, postprocess, debug = True):
     
     if debug:
         print('start eval model')
@@ -180,9 +195,15 @@ def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks,
     ratio_bgVSls = [0,0]
     count_nobackground90 = 0
     count_nobackground50 = 0
-    
+    correct_pixel = 0
+    number_images = 0
+    list_90 = []
+    list_50 = []
+
     for batch in tqdm(iter(test_dl)):
         output_val = resnet34(batch['image'].to(device))
+        if postprocess:
+            output_val = torch.from_numpy(postprocess_batch(output_val.detach().numpy()))
         IaU_arr_val += IaU(batch['mask'].clone(), output_val.clone())
         IaU_arr_malClass += IaU_maliciousClass(batch['mask'].clone(), output_val.clone())
         IaU_arr_noClass += IaU_noClass(batch['mask'].clone(), output_val.clone())
@@ -196,13 +217,24 @@ def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks,
         ratio_bgVSls[0] += ratio_mask_count[0]
         ratio_bgVSls[1] += ratio_mask_count[1]
         
-        count_nobackground90 += acc_of_nobackground(batch['mask'].clone(), output_val.clone(), 0.9)
-        count_nobackground50 += acc_of_nobackground(batch['mask'].clone(), output_val.clone(), 0.5)
-        
+        c, l = acc_of_nobackground(batch['mask'].clone(), output_val.clone(), 0.9)
+        assert(c == len(l))
+        count_nobackground90 += c
+        for i in l:
+            list_90.append(batch['name'][i])
+        l = []
+        c, l = acc_of_nobackground(batch['mask'].clone(), output_val.clone(), 0.5)
+        assert(c == len(l))
+        for i in l:
+            list_50.append(batch['name'][i])
+        count_nobackground50 += c
+        c, d = getModelAccuracy(output_val, batch['mask'])
+        correct_pixel = correct_pixel + c
+        number_images = number_images + d
     Jacc_val = JaccardAccuracy(IaU_arr_val)
     IoU_val = IoU(IaU_arr_val)
     
-    #print("Testset accuracy: ", getModelAccuracy(resnet34, test_dl))
+    print("Testset accuracy: ", c / d)
     print("Testset Jaccard score: ", Jacc_val)
     print("IoU array: ", make_IoUArr(IaU_arr_val))
     print("IoU array with one mal group: ", make_IoUArr_mal(IaU_arr_malClass))
@@ -213,7 +245,14 @@ def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks,
     print("No. of masks that meet conditon (No_lesion_less10): lesion <= 0.1 of whole image :", count_pixAcc[2] / count_pixAcc[1])
     print("No. of predictions where at least 0.9 of the lesion (w/o background) is predicted correctly: ", count_nobackground90/count_pixAcc[1])
     print("No. of predictions where at least 0.5 of the lesion (w/o background) is predicted correctly: ", count_nobackground50/count_pixAcc[1])
-
+    
+    print(len(list_90), len(list_50))
+    
+    print('images where lesion is 50\% correct but not 90\% correct:')
+    for im in list_50:
+        if not im in list_90:
+            print(im)
+        
 
 
 
@@ -232,8 +271,9 @@ if __name__ == '__main__':
     parser.add_argument('path_to_masks', help = 'Input path to masks.')
     parser.add_argument('--set', help = 'Which set to test. Must be in "val", '
             '"train" and "test"')
-    
-    
+    parser.add_argument('--linknet', action='store_true') 
+    parser.add_argument('--postprocess', '--pp', action='store_true')
+
     args = parser.parse_args()
     try:
         with open(args.test_train_split, 'rb') as f:
@@ -254,12 +294,20 @@ if __name__ == '__main__':
 
 
     try:
-        resnet34 = smp.Unet(
-            encoder_name="resnet34",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
-            encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
-            in_channels=3,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-            classes=8,                      # model output channels (number of classes in your dataset)
-        )
+        if args.linknet:
+            resnet34 = smp.Linknet(
+                encoder_name="resnet34",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+                encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
+                in_channels=3,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+                classes=8, 
+            )
+        else:
+            resnet34 = smp.Unet(
+                encoder_name="resnet34",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+                encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
+                in_channels=3,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+                classes=8,                      # model output channels (number of classes in your dataset)
+            )
 
         resnet34.load_state_dict(torch.load(args.model_name, map_location=device))
     except:
@@ -267,4 +315,4 @@ if __name__ == '__main__':
         exit()
     
     print("start eval model")
-    eval_model(resnet34, test_names, args.path_to_csv, args.path_to_images, args.path_to_masks)
+    eval_model(resnet34, test_names, args.path_to_csv, args.path_to_images, args.path_to_masks, args.postprocess)

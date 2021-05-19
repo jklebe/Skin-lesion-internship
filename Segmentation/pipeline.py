@@ -54,33 +54,25 @@ def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks,
         output_val = resnet34(batch['image'].to(device))
         #print('output_val.shape: ', output_val.shape)
 
-        output_argmax = copy.deepcopy(np.expand_dims(np.argmax(output_val.detach().numpy(), axis = 1), axis = 1))
+        output_argmax = np.expand_dims(np.argmax(output_val.cpu().detach().numpy(), axis = 1), axis = 1)
         
         for i_image in range(batch['image'].shape[0]):    # iterate through images in batch
             count_labelMatches = np.zeros(noClasses)
             sum_labelMatches = np.zeros(noClasses)
-            
-            for row in range(batch['image'].shape[2]):  # iterate through pixels of image (rows)
-                for col in range(batch['image'].shape[2]):  # iterate through pixels of image (cols)
-                    
-                    label = output_argmax[i_image][0][row][col]
-                    count_labelMatches[label] += 1    # increase label count if label is argmax
-                    sum_labelMatches[label] += output_val[i_image][label][row][col]
-            
-            for i_label in range(noClasses):   
-                all_count_labelMatches[count_image][i_label] = count_labelMatches[i_label]
-                all_sum_labelMatches[count_image][i_label] = sum_labelMatches[i_label]
+           
+            for nr_cls in range(7):
+                all_count_labelMatches[count_image][nr_cls] = np.sum(np.where(output_argmax[i_image] == nr_cls, 1, 0)) + 1
+                all_sum_labelMatches[count_image][nr_cls] = np.sum(np.where(output_argmax[i_image] == nr_cls, output_val[i_image][nr_cls].cpu().detach().numpy(), 0))
             
             count_image += 1
             list_names.append(batch['name'][i_image])
 
-    for n_img in range(No_images):
-        for n_class in range(noClasses):
-            avg[n_img][n_class] = all_sum_labelMatches[n_img][n_class]/all_count_labelMatches[n_img][n_class]
+    avg = all_sum_labelMatches.astype(np.float32)/all_count_labelMatches.astype(np.float32)
             
+
     # determine max for each class
     print('avg.shape: ', avg.shape)  
-    avg_argmax = copy.deepcopy(np.argmax(avg, axis = 0))
+    avg_argmax = np.argmax(avg, axis = 0)
     print(avg_argmax)
     
     for i in range(noClasses):
