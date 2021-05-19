@@ -83,7 +83,7 @@ def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks,
     avg_argmax = copy.deepcopy(np.argmax(avg, axis = 0))
     print(avg_argmax)
     
-    for i in range(count_image):
+    for i in range(noClasses):
         print('Label: ', i, '\t Image: ', list_names[avg_argmax[i]])
 
         
