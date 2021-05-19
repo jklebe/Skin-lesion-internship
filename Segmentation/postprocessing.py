@@ -1,5 +1,10 @@
 import numpy as np
 
+def postprocess_batch(batch):
+    batch_new = np.zeros_like(batch)
+    for i in range(batch.shape[0]):
+        batch_new[i] = post_process(batch[i]) 
+    return batch_new
 
 def post_process(img):
     size = 11
@@ -42,6 +47,5 @@ def dominant_class(img):
     a = np.zeros(7)
     for i in range(7):
         a[i] = np.sum(np.where(img == i, 1, 0))
-    print(np.argmax(a))
 
     return np.argmax(a)
