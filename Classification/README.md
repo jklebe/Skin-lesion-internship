@@ -1,8 +1,8 @@
 # Skin-lesion Internship 
 
 In this directory the code and other files for the classification task can be found.
-The code for the classification code presumes that the data (csv files with labels and directory with images) is one directory hierarchy higher than the code. 
-For the segmentation task the paths to the csv file with labels, to the directory with images and to the directoy with masks can be entered to the terminal/shell/console.
+The code for the classification code presumes that the data (csv files with labels and directory with images) is one directory hierarchy higher than the code.
+(While for the segmentation task the paths to the csv file with labels, to the directory with images and to the directoy with masks can be entered to the terminal/shell/console.)
 
 | File          | Content       |
 | ------------- |-------------|
