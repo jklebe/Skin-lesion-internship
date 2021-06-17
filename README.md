@@ -1,47 +1,14 @@
 # Skin-lesion Internship 
 
-In this directory the report summaries of the internship (both for the classification and segmentation tasks) and the code/other files for the classification task can be found.
-In the subdirectory Segmentation the code and other files for the segmentation task can be found.
-The code for the classification code presumes that the data (csv files with labels and images) is one folder hierarchy higher than the code. 
-For the segmentation task the paths to the csv file with labels, to the directory with images and to the directoy with masks can be entered to the terminal.
-Please refer to the readme of the Segmentation folder for further information on how to.
+In this repository the results and the code for the skin lesion internship can be found. The code of the classification task is
+in the directory "Classification". The code of the semantic segmentation task is in the directory "Segmentation".
+The reports in the directory "Reports" offer a summary of the methods used and results obtained.
 
-| File          | Content       |
+
+| Directory         | Content       |
 | ------------- |-------------|
-| train_model.py      | trains the model |
-| train_test_split.pkl      | contains training, validation and test sets     |
-| model_best_second_try.pt | contains one of the pre-trained models; because of limited storage capactiy not all models are uploaded   |
-| eval_model.py |   if started, evaluates the model on either the training, validation or test set  |
-| customDataset.py |  contains custom Image Dataset   |
+| Classification    | contains the files with the code for the classification task |
+| Segmentation      | contains the files with the code for the semantic segmentation task    |
+| Report      | contains the reports   |
 
-## New model on existing split sets
-If new model should be trained on existing split set, run
-```
-python train_model.py train_test_split.pkl
-```
-output: model_best.pt
-
-
-## Evaluation of model
-If model should be evaluated on test set, run 
-```
-python eval_model.py model_best_second_try.pt train_test_split.pkl --set test
-```
-If model should be evaluated on validation set, run 
-```
-python eval_model.py model_best_second_try.pt train_test_split.pkl --set val
-```
-If model should be evaluated on training set, run 
-```
-python eval_model.py model_best_second_try.pt train_test_split.pkl --set train
-```
-
-
-
-## New creation of split dataset
-If newly split training, validation and test sets should be created, run
-```
-python train_model.py newNameFileForSavingDatasets.pkl
-```
-
-
+For further information on how to execute the code, please refer to the readme files in the respective directories.
