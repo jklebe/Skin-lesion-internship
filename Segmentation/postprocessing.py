@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def post_processing_batch(batch):
+def postprocess_batch(batch):
     new_batch = np.zeros_like(batch)
     for i in range(batch.shape[0]):
         new_batch[i] = post_process(batch[i])

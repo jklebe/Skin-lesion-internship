@@ -38,10 +38,8 @@ def ratio_backgroundVSlesion(batch_mask):
     count_lesion: No. of pixels that belong to lesion
     count_background: No. of pixels that belong to background
     '''
-    
     count_lesion = (batch_mask != 7).sum()
     count_background = (batch_mask == 7).sum()
-    
     return (count_lesion, count_background)
     
 def acc_of_nobackground(batch_mask_tensor, batch_prediction_tensor, percentage=0.9):
@@ -72,6 +70,7 @@ def acc_of_nobackground(batch_mask_tensor, batch_prediction_tensor, percentage=0
             l.append(i)
     
     return count, l
+    
     
 def IaU_maliciousClass(batch_mask, batch_prediction):
     ''' 
@@ -162,8 +161,21 @@ def make_IoUArr_mal(IaU_arr):
     return arr
     
 
-def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks, postprocess, debug = True):
+def eval_model(model_name, test_names, path_to_csv, path_to_images, path_to_masks, postprocess, debug = True):
+    '''
+    evaluates the model
+    input:
+    model_name = model
+    test_names = list of image names
+    path_to_csv = path to csv file containing labes
+    path_to_images = path to images
+    path_to_masks = path to masks
+    postprocess: if True: postprocessing is applied; if False: postprocessing is not applied.
+    if debug = False: no print statements for debugging are shown
     
+    output:
+    prints various metrics
+    '''
     if debug:
         print('start eval model')
     
@@ -179,8 +191,8 @@ def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks,
         )
     test_dl = DataLoader(testData, batch_size = 32, shuffle = False)
 
-    resnet34.eval()
-    resnet34.to(device)
+    model_name.eval()
+    model_name.to(device)
     
 
 
@@ -201,7 +213,7 @@ def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks,
     list_50 = []
 
     for batch in tqdm(iter(test_dl)):
-        output_val = resnet34(batch['image'].to(device))
+        output_val = model_name(batch['image'].to(device))
         if postprocess:
             output_val = torch.from_numpy(postprocess_batch(output_val.detach().numpy()))
         IaU_arr_val += IaU(batch['mask'].clone(), output_val.clone())
@@ -295,24 +307,24 @@ if __name__ == '__main__':
 
     try:
         if args.linknet:
-            resnet34 = smp.Linknet(
+            model_name = smp.Linknet(
                 encoder_name="resnet34",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
                 encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
                 in_channels=3,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
                 classes=8, 
             )
         else:
-            resnet34 = smp.Unet(
+            model_name = smp.Unet(
                 encoder_name="resnet34",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
                 encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
                 in_channels=3,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
                 classes=8,                      # model output channels (number of classes in your dataset)
             )
 
-        resnet34.load_state_dict(torch.load(args.model_name, map_location=device))
+        model_name.load_state_dict(torch.load(args.model_name, map_location=device))
     except:
         print("could not load the model: ", args.model_name)
         exit()
     
     print("start eval model")
-    eval_model(resnet34, test_names, args.path_to_csv, args.path_to_images, args.path_to_masks, args.postprocess)
+    eval_model(model_name, test_names, args.path_to_csv, args.path_to_images, args.path_to_masks, args.postprocess)

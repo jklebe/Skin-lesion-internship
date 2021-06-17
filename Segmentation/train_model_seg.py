@@ -178,9 +178,6 @@ def train_test_split(
 
 # ---------------------- Modell ---------------------------------------------------- #
 
-# determine avg and stddev of images
-#for name in training_names_akiec + training_names_bcc + training_names_bkl + training_names_df + training_names_mel + training_names_nv +training_names_vasc:
-#    imageio.imread('../images/{}.jpg' .format((name))
 
 # Training Set
 
@@ -321,7 +318,6 @@ def train_network(
     #overfitDataset = CustomImageDataset('../data/HAM10000_metadata.csv', '../data/images/', transform = transform_val, list_im = overfit_names)
 
 
-    # Aenderungen
     model = smp.Unet(
         encoder_name="resnet34",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
         encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
@@ -576,7 +572,7 @@ if __name__ == '__main__':
     parser.add_argument('--pg', action='store_true', help= 'indicate that you want to use progressive growing as a pretraining step')
 
     # Use custom weights as initialization
-    parser.add_argument('-cw', default=None, help = 'path to the weighst, that should be useed for the encoder')
+    parser.add_argument('-cw', default=None, help = 'path to the weighst, that should be used for the encoder')
 
     args = parser.parse_args()
     try:

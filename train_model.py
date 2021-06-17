@@ -24,6 +24,15 @@ def train_test_split(
         validation_set_percentage = 0.1,
         show_plot = False,
         debug = False):
+        
+    '''
+    input:
+    test_set_percentage= relative size of test set
+    validation_set_percentage= relative size of validation set
+    if debug = True: print statements will be shown
+    
+    output: names of images of training set, validation set and test set
+    '''
 
     names = []
     labels = []
@@ -62,12 +71,10 @@ def train_test_split(
 
     # iterating over the labels for frequency
     for l in labels:
-       # checking whether it is in the dict or not
+       # checking whether it is in dict or not
        if l in labels_count:
-          # incerementing the count by 1
           labels_count[l] += 1
        else:
-          # setting the count to 1
           labels_count[l] = 1
           
     # printing the elements frequencies
@@ -76,7 +83,7 @@ def train_test_split(
 
 
     # compute training and test set
-    print('Anzahl aller labels: ', len(labels))
+    print('Number of all labels: ', len(labels))
 
     # lists for sets accoring to labels
     names_akiec = []
@@ -151,6 +158,7 @@ def train_test_split(
         print(len(training_names_nv) + len(test_names_nv))
         print(len(training_names_vasc) + len(test_names_vasc))
 
+    # balancing
     training_names = 20 * training_names_akiec + 13 * training_names_bcc + 6 * training_names_bkl + 58 * training_names_df + 6 * training_names_mel + training_names_nv + 47 * training_names_vasc
     if debug:
         print('len(training_names) :', len(training_names))
@@ -159,19 +167,12 @@ def train_test_split(
 
     test_names = test_names_akiec+test_names_bcc+test_names_bkl+test_names_df+test_names_mel+test_names_nv+test_names_vasc
     if debug:
-        print(len(test_names))
+        print('len(test_names): ', len(test_names))
     
     return training_names, validation_names, test_names
 
 
 # ---------------------- Modell ---------------------------------------------------- #
-
-# determine avg and stddev of images
-#for name in training_names_akiec + training_names_bcc + training_names_bkl + training_names_df + training_names_mel + training_names_nv +training_names_vasc:
-#    imageio.imread('../images/{}.jpg' .format((name))
-
-# Training Set
-
 
 #overfit_names = [training_names_akiec[0], 
 #                 training_names_bcc[0],
@@ -183,9 +184,12 @@ def train_test_split(
         
 
 def train_network(training_names, validation_names, test_names):
-
-    # transformer (size, normalize make to Tensor)
-    ''' ToTensor needs a PIL or np-arr. '''
+    '''
+    trains the model, saves model to model_best.pt
+    training_names = list with image names of training set
+    validation_names = list with image names of validation set
+    test_names = list with images names of test set
+    '''
     transform_data = transforms.Compose([
         transforms.Resize((256,256)),
         transforms.RandomCrop(224),
@@ -196,7 +200,7 @@ def train_network(training_names, validation_names, test_names):
         transforms.ColorJitter(0.4,0.4,0.4),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.7635, 0.5461, 0.5705], std=[0.0896, 0.1212, 0.1330])
-        ])   # mean and stddev have been previously calculated
+        ])   # mean and stddev have been previously calculated and divided by 255 because ToTensor divides the values by 255
         
     transform_val = transforms.Compose([
         transforms.Resize((256,256)),
@@ -230,8 +234,6 @@ def train_network(training_names, validation_names, test_names):
     resnet34.train()
     resnet34.to(device)
 
-    #print(resnet34(imTensor.unsqueeze(0)))
-
     # ------------------------------------------------ train the model ------------------------------------------ #
 
     train_dl = DataLoader(myDataset, batch_size = 32, shuffle = True)
@@ -248,7 +250,6 @@ def train_network(training_names, validation_names, test_names):
     #optimizer = optim.SGD(resnet34.parameters(), lr=0.001, momentum=0.9)
 
     #train the model
-
 
     testData = CustomImageDataset('../data/HAM10000_metadata.csv', '../data/images', transform = transform_val, list_im = test_names)
     test_dl = DataLoader(testData, batch_size = 100, shuffle = False)

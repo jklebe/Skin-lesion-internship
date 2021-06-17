@@ -15,7 +15,15 @@ class CustomImageDataset(Dataset):
     
 
     def __init__(self, metaDataFile, path_to_images, path_to_masks, transform_data_seg_1 = None, transform_toTensor = None, transform_data_seg_2 = None, list_im = None):
-        ''' path_to_images = path to images, metaDataFile: path to labels'''
+        '''
+        metaDataFile: path to labels
+        path_to_images = path to images
+        path_to_masks = path to masks
+        transform_data_seg_1 = first transformations on image that do no apply to mask
+        transform_toTensor = transforms mask to Tensor
+        transform_data_seg_2 = transformations applied on image and mask simultaneously
+        list_im = list with image names
+        '''
         self.path_to_images = path_to_images
         self.path_to_masks = path_to_masks
         self.labels_dir = metaDataFile
@@ -38,12 +46,10 @@ class CustomImageDataset(Dataset):
             for row in reader:
                 self.img_list.append(row[1]) 
 
-    # Aenderung 2
     def __create4LayersImage__(self, image, imageSeg):
-        ''' makes image and the image containing the segmentation (imageSeg) 
-         to tensor, applies colorJitter to image and normalizes image     
-         adds a forth layer to the image which is the segmentation image  
-         return concatenated tensor                                       '''
+        ''' 
+         returns concatenated tensor                                       
+        '''
         #imTensor = transform_data_seg_1(image)
         #imSegTensoro = transform_toTensor(imageSeg)
         conTensor = torch.cat((image, imageSeg), 0)
@@ -58,11 +64,14 @@ class CustomImageDataset(Dataset):
             next(reader)
             for row in reader:
                 if imageName == row[1]:
-                    #print('test: dic[row[2]]: ', dic[row[2]])
                     return dic[row[2]]
     
-    # Aenderung    
+   
     def __getitem__(self, idx):
+        '''
+        input: index (idx)
+        output: {"image": image, "mask":mask, "name": name of image}
+        '''
         im = PIL.Image.open(self.path_to_images + '/{}.jpg'.format(self.img_list[idx]))
         imSeg = PIL.Image.open(self.path_to_masks + '/{}_segmentation.png'.format(self.img_list[idx]))
         label = self.__getLabel__(self.img_list[idx])
@@ -97,11 +106,11 @@ class CustomImageDataset(Dataset):
 
 
 
-
-''' ToTensor needs a PIL or np-arr.
- transforms image to tensor,
- applies colorJitter to image and normalizes image
- returns tensor with rgb layer and a forth layer which is the segmentation image '''
+'''
+Transforms images in regard of data augementation procedure.
+Since ColorJitter and Normalization do not apply to mask transformation, these transformations
+are applied solely on the image.
+'''
 transform_data_seg_1 = transforms.Compose([
     transforms.ColorJitter(0.4,0.4,0.4),
     transforms.ToTensor(),
@@ -112,7 +121,9 @@ transform_data_seg_1 = transforms.Compose([
 
 transform_toTensor = transforms.ToTensor()
     
-
+'''
+Transforms image and mask simultaneously in regard of data augmentation procedure.
+'''
 transform_data_seg_2 = transforms.Compose([
     transforms.Resize((256,256)),
     transforms.RandomCrop(224),
@@ -122,13 +133,16 @@ transform_data_seg_2 = transforms.Compose([
     transforms.RandomPerspective(distortion_scale=0.2),
     ])
    
-   
+
+'''
+Transform created for validation set.
+'''   
 transform_data_val = transforms.Compose([
     transforms.Resize((256, 256)),
     transforms.CenterCrop(224)
     ])
 
-''' transforms input image '''   
+
 transform_data_seg_test = transforms.Compose([
     transforms.ToTensor(),
     #transforms.Normalize(mean=[194.6979, 139.2626, 145.4852], std=[22.8551, 30.9032, 33.9032])
@@ -138,6 +152,7 @@ transform_data_seg_test = transforms.Compose([
 
 def transform_pg(level = 0):
     """
+    transform for progressive growing
     level 0 :   7x  7
     level 1 :  14x 14
     level 2 :  28x 28

@@ -22,7 +22,20 @@ print(device)
 
 
 
-def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks, debug = True):
+def eval_model(model_name, test_names, path_to_csv, path_to_images, path_to_masks, debug = True):
+    '''
+    input:
+    model_name = model
+    test_names = list of image names
+    path_to_csv = path to csv file containing labes
+    path_to_images = path to images
+    path_to_masks = path to masks
+    if debug = False: no print statements for debugging are shown
+    
+    output:
+    Prints for each class the name of the image that has the highest probability to belong to this class according to the net.
+    '''
+    
     
     if debug:
         print('start eval model')
@@ -39,8 +52,8 @@ def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks,
         )
     test_dl = DataLoader(testData, batch_size = 32, shuffle = False)
 
-    resnet34.eval()
-    resnet34.to(device)
+    model_name.eval()
+    model_name.to(device)
     
     noClasses = 8
     No_images = len(testData)
@@ -51,7 +64,7 @@ def eval_model(resnet34, test_names, path_to_csv, path_to_images, path_to_masks,
 
     count_image = 0
     for batch in tqdm(iter(test_dl)):
-        output_val = resnet34(batch['image'].to(device))
+        output_val = model_name(batch['image'].to(device))
         #print('output_val.shape: ', output_val.shape)
 
         output_argmax = np.expand_dims(np.argmax(output_val.cpu().detach().numpy(), axis = 1), axis = 1)
@@ -125,17 +138,17 @@ if __name__ == '__main__':
 
 
     try:
-        resnet34 = smp.Unet(
-            encoder_name="resnet34",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+        model_name = smp.Unet(
+            encoder_name="model_name",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
             encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
             in_channels=3,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
             classes=8,                      # model output channels (number of classes in your dataset)
         )
 
-        resnet34.load_state_dict(torch.load(args.model_name, map_location=device))
+        model_name.load_state_dict(torch.load(args.model_name, map_location=device))
     except:
         print("could not load the model: ", args.model_name)
         exit()
     
     print("start eval model")
-    eval_model(resnet34, test_names, args.path_to_csv, args.path_to_images, args.path_to_masks)
+    eval_model(model_name, test_names, args.path_to_csv, args.path_to_images, args.path_to_masks)

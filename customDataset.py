@@ -8,7 +8,12 @@ class CustomImageDataset(Dataset):
     
 
     def __init__(self, metaDataFile, img_dir, transform = None, list_im = None):
-        ''' img_dir = path to images, metaDataFile: path to labels'''
+        '''
+        img_dir = path to images, metaDataFile: path to labels
+        metaDataFile = path to csv file containing labels
+        tranform = transform that is used for data augmentation
+        list_im = list with names of images used in this particular set
+        '''
         self.img_dir = img_dir
         self.labels_dir = metaDataFile
         self.transform = transform
@@ -28,7 +33,10 @@ class CustomImageDataset(Dataset):
                 self.img_list.append(row[1])        
         
     def __getLabel__(self, imageName): 
-        '''enter the name of the image and get the corresponding label'''
+        '''
+        input: name of the image
+        output :get the corresponding label
+        '''
         #folderName= '../HAM10000_metadata.csv'
         dic = {'akiec':0, 'bcc':1, 'bkl':2, 'df':3, 'mel':4, 'nv':5, 'vasc':6}
         with open(self.labels_dir, 'r' ) as csvfile:		
@@ -40,6 +48,10 @@ class CustomImageDataset(Dataset):
                     return dic[row[2]]
                     
     def __getitem__(self, idx):
+        '''
+        input: index idx
+        output: (image, label)
+        '''
         im = PIL.Image.open('../data/images/{}.jpg'.format(self.img_list[idx]))
         #image = read_image(self.img_dir) # Bild soll mit idx aufgerufen werden (in csv Liste)  -> self parameter ist die Liste. statt Panda nutze PIL
         label = self.__getLabel__(self.img_list[idx])
@@ -52,6 +64,7 @@ class CustomImageDataset(Dataset):
 
 def transform_pg(level = 0):
     """
+    transform used for progressive learning
     level 0 :   7x  7
     level 1 :  14x 14
     level 2 :  28x 28

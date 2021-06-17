@@ -15,7 +15,10 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(device)
 
 def eval_model(resnet34, test_names):
- 
+    '''
+    input: model (resnet34) and list with names of images (test_names)
+    output: prints confusion matrix, accuracy, balanced accuracy and mean recall
+    '''
     transform_val = transforms.Compose([
         transforms.Resize((256,256)),
         transforms.CenterCrop(224),
